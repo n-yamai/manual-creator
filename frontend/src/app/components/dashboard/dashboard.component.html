@@ -1,0 +1,200 @@
+<div class="app-layout">
+  <!-- Sidebar Navigation (Desktop) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <lucide-icon [name]="SparklesIcon"></lucide-icon>
+      </div>
+      <h1 class="brand-title">ManualAI</h1>
+    </div>
+    
+    <nav class="nav-menu">
+      <a class="nav-item active" routerLink="/">
+        <lucide-icon [name]="DashboardIcon" class="nav-icon"></lucide-icon>
+        <span>ダッシュボード</span>
+      </a>
+      <a class="nav-item" routerLink="/create">
+        <lucide-icon [name]="PlusIcon" class="nav-icon"></lucide-icon>
+        <span>新規作成</span>
+      </a>
+
+      <!-- Divider & Recent Manuals -->
+      <hr class="sidebar-divider">
+      
+      <div class="recent-manuals-section">
+        <span class="sidebar-section-title">最近の手順書 (直近5件)</span>
+        <div class="recent-list">
+          <a 
+            *ngFor="let rm of recentManuals" 
+            [routerLink]="['/edit', rm.id]" 
+            class="recent-item" 
+            [title]="rm.title"
+          >
+            <lucide-icon [name]="FileTextIcon" class="recent-icon"></lucide-icon>
+            <span class="recent-title">{{ rm.title }}</span>
+          </a>
+          <span *ngIf="!recentManuals || recentManuals.length === 0" class="no-recent">手順書がありません</span>
+        </div>
+      </div>
+    </nav>
+
+
+    <div class="sidebar-footer">
+      <div class="storage-widget">
+        <span class="storage-title">AI Processing</span>
+        <div class="storage-bar"><div class="storage-progress"></div></div>
+        <span class="storage-desc">Gemini 3.5 Flash Active</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Canvas -->
+  <main class="main-canvas">
+    <!-- Top Bar -->
+    <header class="top-header">
+      <div class="search-box">
+        <lucide-icon [name]="SearchIcon" class="search-icon"></lucide-icon>
+        <input 
+          type="text" 
+          placeholder="手順書を検索..." 
+          [value]="searchQuery" 
+          (input)="filterManuals($event)"
+        >
+      </div>
+
+      <div class="user-profile">
+        <div class="avatar">JD</div>
+        <span class="user-name">ユーザー</span>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="content-body">
+      
+      <!-- Welcome Header & CTA -->
+      <section class="welcome-section animate-fade-in">
+        <div class="welcome-text">
+          <h2>手順書ダッシュボード</h2>
+          <p>作成済みの手順書の管理、編集、およびエクスポートが可能です。</p>
+        </div>
+        <button class="btn btn-primary btn-cta" routerLink="/create">
+          <lucide-icon [name]="PlusIcon" class="icon-left"></lucide-icon>
+          新規手順書を作成
+        </button>
+      </section>
+
+      <!-- Bento Cards Highlights -->
+      <div class="bento-grid animate-fade-in">
+        <div class="bento-card bento-primary">
+          <div class="bento-content">
+            <span class="bento-label">総マニュアル数</span>
+            <div class="bento-value">{{ manuals.length }} <span class="unit">件</span></div>
+          </div>
+          <lucide-icon [name]="BookOpenIcon" class="bento-bg-icon"></lucide-icon>
+        </div>
+
+        <div class="bento-card">
+          <div class="bento-content">
+            <span class="bento-label">AI動画解析エンジン</span>
+            <div class="bento-subtitle">Gemini 3.5 Flash</div>
+            <span class="badge badge-success">稼働中</span>
+          </div>
+        </div>
+
+        <div class="bento-card">
+          <div class="bento-content">
+            <span class="bento-label">対応形式</span>
+            <div class="bento-subtags">
+              <span class="tag">PDF</span>
+              <span class="tag">HTML</span>
+              <span class="tag">Markdown</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- State Containers -->
+      <div *ngIf="loading" class="state-container animate-fade-in">
+        <div class="spinner"></div>
+        <p>手順書データを読み込んでいます...</p>
+      </div>
+
+      <div *ngIf="error" class="state-container error animate-fade-in">
+        <p>{{ error }}</p>
+        <button class="btn btn-secondary" (click)="loadManuals()">再試行</button>
+      </div>
+
+      <div *ngIf="!loading && !error && filteredManuals.length === 0" class="state-container empty-state animate-fade-in">
+        <lucide-icon [name]="FileTextIcon" class="empty-icon"></lucide-icon>
+        <h3>手順書が見つかりません</h3>
+        <p>新しい動画をアップロードして手順書を作成してみましょう！</p>
+        <button class="btn btn-primary" routerLink="/create">
+          <lucide-icon [name]="PlusIcon" class="icon-left"></lucide-icon>
+          手順書を作成する
+        </button>
+      </div>
+
+      <!-- Manual Cards Grid -->
+      <div *ngIf="!loading && !error && filteredManuals.length > 0" class="manuals-grid">
+        <div 
+          *ngFor="let manual of filteredManuals; let i = index" 
+          class="manual-card animate-card-slide-in"
+          [style.animation-delay]="i * 0.04 + 's'"
+          (click)="navigateToEditor(manual.id)"
+        >
+          <div class="card-body">
+            <div class="card-top flex-between">
+              <div class="card-icon-badge">
+                <lucide-icon [name]="FileTextIcon"></lucide-icon>
+              </div>
+              <span class="date-tag">
+                <lucide-icon [name]="CalendarIcon" class="tag-icon"></lucide-icon>
+                <span>{{ manual.created_at | date:'yyyy/MM/dd HH:mm' }}</span>
+              </span>
+
+            </div>
+
+            <h3 class="card-title">{{ manual.title }}</h3>
+            
+            <p class="card-snippet" *ngIf="manual.content">
+              {{ manual.content | slice:0:80 }}...
+            </p>
+
+            <div class="card-footer flex-between">
+              <span class="video-badge" *ngIf="manual.video_path">
+                <lucide-icon [name]="VideoIcon" class="badge-icon"></lucide-icon>
+                動画紐付け
+              </span>
+              <span *ngIf="!manual.video_path"></span>
+
+              <div class="card-actions">
+                <button 
+                  class="action-btn edit-btn" 
+                  title="編集"
+                  (click)="navigateToEditor(manual.id); $event.stopPropagation()"
+                >
+                  <lucide-icon [name]="EditIcon"></lucide-icon>
+                </button>
+                <button 
+                  class="action-btn download-btn" 
+                  title="PDFダウンロード"
+                  (click)="downloadPdf(manual.id, $event)"
+                >
+                  <lucide-icon [name]="DownloadIcon"></lucide-icon>
+                </button>
+                <button 
+                  class="action-btn delete-btn" 
+                  title="削除"
+                  (click)="deleteManual(manual.id, $event)"
+                >
+                  <lucide-icon [name]="TrashIcon"></lucide-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>

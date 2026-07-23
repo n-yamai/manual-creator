@@ -1,0 +1,388 @@
+<div class="editor-page animate-fade-in" *ngIf="!loading && !error && manual">
+  
+  <!-- Fixed Top App Header -->
+  <header class="top-header">
+    <div class="header-left">
+      <button class="back-btn" routerLink="/" title="ダッシュボードへ戻る">
+        <lucide-icon [name]="ArrowLeftIcon"></lucide-icon>
+      </button>
+      <div class="title-wrapper">
+        <input 
+          type="text" 
+          [(ngModel)]="manual.title" 
+          class="manual-title-input" 
+          placeholder="手順書タイトルを入力..."
+        >
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Export Dropdown -->
+      <div class="export-dropdown group">
+        <button class="btn btn-secondary dropdown-btn">
+          <lucide-icon [name]="DownloadIcon" class="icon-left"></lucide-icon>
+          書き出し
+          <lucide-icon [name]="ChevronDownIcon" class="icon-right"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu">
+          <button (click)="downloadPdf()">
+            <lucide-icon [name]="FileTextIcon" class="drop-icon text-red"></lucide-icon>
+            PDF ドキュメント (.pdf)
+          </button>
+          <button (click)="downloadHtml()">
+            <lucide-icon [name]="FileCodeIcon" class="drop-icon text-blue"></lucide-icon>
+            HTML ページ (.html)
+          </button>
+          <button (click)="downloadMarkdown()">
+            <lucide-icon [name]="CodeIcon" class="drop-icon text-slate"></lucide-icon>
+            Markdown 生データ (.md)
+          </button>
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <button 
+        class="btn btn-primary save-btn" 
+        [disabled]="saving" 
+        (click)="saveManual()"
+      >
+        <lucide-icon [name]="saveSuccess ? CheckIcon : SaveIcon" class="icon-left"></lucide-icon>
+        {{ saving ? '保存中...' : (saveSuccess ? '保存完了！' : '保存') }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Tab Switches -->
+  <div class="mobile-tabs">
+    <button [class.active]="activeTab === 'edit'" (click)="activeTab = 'edit'">
+      <lucide-icon [name]="EditIcon" class="icon-left"></lucide-icon> 編集
+    </button>
+    <button [class.active]="activeTab === 'preview'" (click)="activeTab = 'preview'">
+      <lucide-icon [name]="EyeIcon" class="icon-left"></lucide-icon> プレビュー
+    </button>
+  </div>
+
+  <!-- Main Canvas Grid -->
+  <main class="editor-workspace">
+    
+    <!-- Left Column: Video Player & Extracted Keyframes -->
+    <section class="workspace-column media-column" [class.mobile-hidden]="activeTab !== 'edit'">
+      
+      <!-- Video Player Card -->
+      <div class="card media-card" *ngIf="manual.video_path">
+        <div class="card-title-bar">
+          <div class="bar-title">
+            <lucide-icon [name]="VideoIcon" class="bar-icon"></lucide-icon>
+            <span>紐付け録画</span>
+          </div>
+          <button 
+            class="btn btn-sm btn-primary capture-btn" 
+            [disabled]="isExtracting"
+            (click)="extractCurrentFrame()"
+            title="現在の再生シーンから静止画を切り出します"
+          >
+            <lucide-icon [name]="CameraIcon" class="icon-left"></lucide-icon>
+            {{ isExtracting ? '切り出し中...' : '静止画切り出し' }}
+          </button>
+        </div>
+        
+        <video 
+          #videoPlayer 
+          [src]="getVideoUrl()" 
+          controls 
+          class="video-element"
+          (loadedmetadata)="onVideoLoadedMetadata()"
+          (timeupdate)="onVideoTimeUpdate()"
+          (play)="onVideoPlay()"
+          (pause)="onVideoPause()"
+        ></video>
+
+        <!-- Video Control & Seek Timeline Bar -->
+        <div class="video-controls-panel">
+          <div class="timeline-row">
+            <input 
+              type="range" 
+              class="video-seeker" 
+              min="0" 
+              [max]="videoDuration || 100" 
+              step="0.1" 
+              [value]="videoCurrentTime" 
+              (input)="onSliderSeek($event)"
+            >
+          </div>
+          
+          <div class="controls-row">
+            <div class="time-display">
+              <span class="current-time">{{ videoCurrentTime | number:'1.1-1' }}s</span>
+              <span class="divider">/</span>
+              <span class="total-time">{{ videoDuration | number:'1.1-1' }}s</span>
+            </div>
+
+            <div class="player-btns">
+              <button class="ctrl-btn" (click)="skipSeconds(-5)" title="5秒巻き戻し">
+                <lucide-icon [name]="RotateCcwIcon"></lucide-icon>
+              </button>
+              <button class="ctrl-btn play-btn" (click)="togglePlay()" title="再生 / 一時停止">
+                <lucide-icon [name]="isPlaying ? PauseIcon : PlayIcon"></lucide-icon>
+              </button>
+              <button class="ctrl-btn" (click)="skipSeconds(5)" title="5秒早送り">
+                <lucide-icon [name]="RotateCwIcon"></lucide-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Extracted Keyframes List -->
+      <div class="card images-card">
+        <div class="card-title-bar">
+          <div class="bar-title">
+            <lucide-icon [name]="ImageIcon" class="bar-icon"></lucide-icon>
+            <span>切り出し静止画 ({{ manual.images?.length || 0 }})</span>
+          </div>
+        </div>
+        <p class="section-desc">クリックで動画位置にシーク、「挿入」でテキストに配置できます。</p>
+        
+        <div *ngIf="!manual.images || manual.images.length === 0" class="no-images-msg">
+          <p>静止画がまだありません。動画の「静止画切り出し」を押して追加してください。</p>
+        </div>
+
+        <div class="images-grid" *ngIf="manual.images && manual.images.length > 0">
+          <div 
+            *ngFor="let img of manual.images; let i = index" 
+            class="image-item"
+            (click)="seekTo(img.timestamp)"
+          >
+            <div class="image-wrapper">
+              <img [src]="getAbsoluteImageUrl(img.image_path)" [alt]="img.description">
+              <span class="timestamp-badge">
+                <lucide-icon [name]="PlayIcon" class="badge-icon"></lucide-icon>
+                {{ img.timestamp | number:'1.1-1' }}s
+              </span>
+            </div>
+            <div class="image-info">
+              <span class="image-index">画像 #{{ i + 1 }}</span>
+              <p class="image-desc">{{ img.description || '説明なし' }}</p>
+              <div class="image-actions">
+                <button 
+                  class="btn-icon btn-insert" 
+                  (click)="insertImageToEditor(img, $event)"
+                  title="エディタにこの画像を挿入"
+                >
+                  <lucide-icon [name]="PlusIcon" class="action-icon"></lucide-icon>
+                  挿入
+                </button>
+                <button 
+                  class="btn-icon btn-edit-img" 
+                  (click)="openImageEditor(img, $event)"
+                  title="この静止画を編集（切り抜き・図形挿入）"
+                >
+                  <lucide-icon [name]="EditIcon" class="action-icon"></lucide-icon>
+                  編集
+                </button>
+                <button 
+                  class="btn-icon btn-delete" 
+                  (click)="deleteImage(img, $event)"
+                  title="この静止画を削除"
+                >
+                  <lucide-icon [name]="TrashIcon" class="action-icon"></lucide-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+    </section>
+
+    <!-- Center Column: Markdown Editor -->
+    <section class="workspace-column editor-column" [class.mobile-hidden]="activeTab !== 'edit'">
+      <div class="card text-editor-card">
+        <div class="card-title-bar">
+          <div class="bar-title">
+            <lucide-icon [name]="CodeIcon" class="bar-icon"></lucide-icon>
+            <span>Markdown エディタ</span>
+          </div>
+        </div>
+        
+        <textarea 
+          [(ngModel)]="manual.content" 
+          class="markdown-textarea" 
+          placeholder="# 手順書の作成&#10;&#10;ここにMarkdown形式で内容を記述してください..."
+        ></textarea>
+      </div>
+    </section>
+
+    <!-- Right Column: Document Live Preview Paper -->
+    <section class="workspace-column preview-column" [class.mobile-hidden]="activeTab !== 'preview'">
+      <div class="card preview-card">
+        <div class="card-title-bar">
+          <div class="bar-title">
+            <lucide-icon [name]="EyeIcon" class="bar-icon"></lucide-icon>
+            <span>プレビュー (印刷レイアウト)</span>
+          </div>
+        </div>
+        
+        <div class="paper-canvas">
+          <div class="document-paper">
+            <h1 class="preview-title">{{ manual.title }}</h1>
+            <div class="preview-meta">
+              <span>作成日: {{ manual.created_at | date:'yyyy/MM/dd HH:mm' }}</span>
+              <span>最終更新日: {{ manual.updated_at | date:'yyyy/MM/dd HH:mm' }}</span>
+            </div>
+            <hr class="paper-divider">
+            
+            <div class="markdown-rendered-content">
+              <markdown [data]="getFormattedContent() || '*(手順書が空です。左側のエディタで記述してください)*'"></markdown>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<!-- Loading and Error States -->
+<div class="state-container animate-fade-in" *ngIf="loading">
+  <div class="spinner"></div>
+  <p>手順書データを読み込んでいます...</p>
+</div>
+
+<div class="state-container error animate-fade-in" *ngIf="error">
+  <p>{{ error }}</p>
+  <button class="btn btn-secondary" routerLink="/">ダッシュボードへ戻る</button>
+</div>
+
+<!-- Image Editor Modal -->
+<div class="modal-overlay animate-fade-in" *ngIf="isImageEditorOpen">
+  <div class="image-editor-modal">
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <div class="modal-title">
+        <lucide-icon [name]="EditIcon" class="header-icon"></lucide-icon>
+        <span>静止画編集（切り抜き・図形挿入）</span>
+      </div>
+      <button class="close-btn" (click)="closeImageEditor()">
+        <lucide-icon [name]="CloseIcon"></lucide-icon>
+      </button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+      <!-- Tool Selection -->
+      <div class="toolbar-group">
+        <span class="toolbar-label">ツール:</span>
+        <button 
+          class="tool-btn" 
+          [class.active]="selectedTool === 'rect'" 
+          (click)="selectedTool = 'rect'; cropSelected = false"
+          title="四角 (矩形) を描画"
+        >
+          <lucide-icon [name]="SquareIcon"></lucide-icon>
+          <span>四角</span>
+        </button>
+        <button 
+          class="tool-btn" 
+          [class.active]="selectedTool === 'circle'" 
+          (click)="selectedTool = 'circle'; cropSelected = false"
+          title="丸 (楕円) を描画"
+        >
+          <lucide-icon [name]="CircleIcon"></lucide-icon>
+          <span>丸</span>
+        </button>
+        <button 
+          class="tool-btn" 
+          [class.active]="selectedTool === 'arrow'" 
+          (click)="selectedTool = 'arrow'; cropSelected = false"
+          title="矢印を描画"
+        >
+          <lucide-icon [name]="ArrowIcon"></lucide-icon>
+          <span>矢印</span>
+        </button>
+        <button 
+          class="tool-btn" 
+          [class.active]="selectedTool === 'crop'" 
+          (click)="selectedTool = 'crop'"
+          title="ドラッグ範囲で切り抜き (トリミング)"
+        >
+          <lucide-icon [name]="CropIcon"></lucide-icon>
+          <span>切り抜き</span>
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Color Selection -->
+      <div class="toolbar-group" *ngIf="selectedTool !== 'crop'">
+        <span class="toolbar-label">カラー:</span>
+        <div class="color-picker-group">
+          <button 
+            *ngFor="let c of colorOptions" 
+            class="color-btn" 
+            [class.active]="selectedColor === c.value"
+            [style.backgroundColor]="c.value"
+            [title]="c.name"
+            (click)="selectedColor = c.value"
+          ></button>
+        </div>
+      </div>
+
+      <!-- Line Width Selection -->
+      <div class="toolbar-group" *ngIf="selectedTool !== 'crop'">
+        <span class="toolbar-label">太さ:</span>
+        <select [(ngModel)]="selectedLineWidth" class="width-select">
+          <option *ngFor="let w of lineWidthOptions" [value]="w.value">{{ w.label }}</option>
+        </select>
+      </div>
+
+      <!-- Actions (Crop Apply / Undo / Reset) -->
+      <div class="toolbar-group actions-group">
+        <button 
+          class="btn btn-sm btn-primary apply-crop-btn" 
+          *ngIf="selectedTool === 'crop' && cropSelected"
+          (click)="applyCrop()"
+        >
+          <lucide-icon [name]="CropIcon" class="icon-left"></lucide-icon>
+          選択範囲で切り抜き実行
+        </button>
+        <button class="btn btn-sm btn-outline" (click)="undoCanvas()" title="直前の描画を取り消し">
+          <lucide-icon [name]="UndoIcon" class="icon-left"></lucide-icon>
+          元に戻す
+        </button>
+        <button class="btn btn-sm btn-ghost" (click)="resetCanvas()" title="元の画像に初期化">
+          リセット
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas Working Area -->
+    <div class="canvas-viewport">
+      <canvas 
+        #editorCanvas 
+        class="interactive-canvas"
+        (mousedown)="onCanvasMouseDown($event)"
+        (mousemove)="onCanvasMouseMove($event)"
+        (mouseup)="onCanvasMouseUp($event)"
+      ></canvas>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <span class="modal-hint">※ 画像上でドラッグすると選択した図形や切り抜き枠を描画できます</span>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" (click)="closeImageEditor()" [disabled]="isSavingEditedImage">キャンセル</button>
+        <button class="btn btn-primary" (click)="saveEditedImage()" [disabled]="isSavingEditedImage">
+          <span *ngIf="!isSavingEditedImage">💾 保存して更新</span>
+          <span *ngIf="isSavingEditedImage">保存中...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

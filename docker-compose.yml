@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: manual_creator_db
+    restart: always
+    environment:
+      POSTGRES_USER: manual_user
+      POSTGRES_PASSWORD: manual_password
+      POSTGRES_DB: manual_db
+    ports:
+      - "0.0.0.0:5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: manual_creator_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://manual_user:manual_password@db:5432/manual_db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    ports:
+      - "0.0.0.0:3002:8000"
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: manual_creator_frontend
+    restart: always
+    ports:
+      - "0.0.0.0:4202:4200"
+
+
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  media_data:

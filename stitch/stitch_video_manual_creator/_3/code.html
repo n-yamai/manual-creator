@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Manual Editor - Professional Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Desktop app feel */
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .editor-height { height: calc(100vh - 64px); }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary-fixed-dim": "#b3c5ff",
+                      "on-tertiary-container": "#f6f8fa",
+                      "surface-container-highest": "#d8e3fb",
+                      "surface-container-low": "#f0f3ff",
+                      "surface": "#f9f9ff",
+                      "on-error": "#ffffff",
+                      "on-primary-container": "#f8f7ff",
+                      "inverse-surface": "#263143",
+                      "on-secondary-fixed-variant": "#2f2ebe",
+                      "surface-container-high": "#dee8ff",
+                      "on-tertiary": "#ffffff",
+                      "on-surface-variant": "#424656",
+                      "error-container": "#ffdad6",
+                      "on-secondary-fixed": "#07006c",
+                      "on-secondary-container": "#fffbff",
+                      "on-tertiary-fixed": "#191c1e",
+                      "outline-variant": "#c2c6d8",
+                      "surface-container": "#e7eeff",
+                      "primary": "#0050cb",
+                      "background": "#f9f9ff",
+                      "on-primary": "#ffffff",
+                      "tertiary-container": "#6f7274",
+                      "primary-fixed": "#dae1ff",
+                      "inverse-on-surface": "#ecf1ff",
+                      "secondary-fixed": "#e1e0ff",
+                      "error": "#ba1a1a",
+                      "on-tertiary-fixed-variant": "#444749",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#001849",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-fixed-dim": "#c4c7c9",
+                      "outline": "#727687",
+                      "secondary": "#4648d4",
+                      "inverse-primary": "#b3c5ff",
+                      "surface-variant": "#d8e3fb",
+                      "surface-tint": "#0054d6",
+                      "on-primary-fixed-variant": "#003fa4",
+                      "on-surface": "#111c2d",
+                      "surface-dim": "#cfdaf2",
+                      "primary-container": "#0066ff",
+                      "on-error-container": "#93000a",
+                      "surface-bright": "#f9f9ff",
+                      "secondary-fixed-dim": "#c0c1ff",
+                      "on-background": "#111c2d",
+                      "tertiary": "#565a5b",
+                      "secondary-container": "#6063ee",
+                      "tertiary-fixed": "#e0e3e5"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "gutter": "12px",
+                      "margin-tablet": "24px",
+                      "stack-sm": "8px",
+                      "base": "4px",
+                      "stack-md": "16px",
+                      "stack-lg": "24px"
+              },
+              "fontFamily": {
+                      "label-sm": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "label-md": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "headline-lg-mobile": ["Inter"],
+                      "body-lg": ["Inter"]
+              },
+              "fontSize": {
+                      "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Top AppBar (JSON Content Implementation) -->
+<header class="flex justify-between items-center w-full px-4 h-[64px] z-50 bg-surface border-b border-outline-variant shadow-sm fixed top-0 left-0 right-0">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform hover:opacity-80 flex items-center justify-center w-10 h-10 rounded-full">
+<span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">マニュアル作成</h1>
+</div>
+<div class="flex items-center gap-3">
+<!-- Export Dropdown Logic -->
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline text-on-surface rounded-lg hover:bg-surface-container-high transition-colors text-label-md">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                    書き出し
+                    <span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+<div class="absolute right-0 mt-2 w-48 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60]">
+<ul class="py-2">
+<li class="px-4 py-2 hover:bg-surface-container-high cursor-pointer flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">picture_as_pdf</span> PDF
+                        </li>
+<li class="px-4 py-2 hover:bg-surface-container-high cursor-pointer flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-secondary text-[20px]">code</span> HTML
+                        </li>
+<li class="px-4 py-2 hover:bg-surface-container-high cursor-pointer flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-tertiary text-[20px]">description</span> Markdown
+                        </li>
+</ul>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-label-md hover:opacity-90 active:scale-95 transition-all shadow-md">
+                保存
+            </button>
+</div>
+</header>
+<!-- Main Content Area with Sidebar -->
+<main class="flex pt-[64px] h-screen bg-background">
+<!-- Persistence Sidebar (Desktop) -->
+<nav class="hidden md:flex flex-col w-20 border-r border-outline-variant bg-surface items-center py-6 gap-8">
+<div class="active:scale-90 transition-all cursor-pointer flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[28px]">home</span>
+<span class="text-[10px] font-medium">ホーム</span>
+</div>
+<div class="active:scale-90 transition-all cursor-pointer flex flex-col items-center gap-1 bg-secondary-container text-on-secondary-container rounded-xl px-2 py-2">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="text-[10px] font-medium">作成</span>
+</div>
+<div class="active:scale-90 transition-all cursor-pointer flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[28px]">person</span>
+<span class="text-[10px] font-medium">マイページ</span>
+</div>
+</nav>
+<!-- Editor Grid Layout -->
+<div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-0 overflow-hidden">
+<!-- Left Column: Media (3/12) -->
+<section class="md:col-span-3 flex flex-col border-r border-outline-variant bg-surface-container-low overflow-y-auto">
+<div class="p-4 space-y-4">
+<h3 class="font-label-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">videocam</span> ソースビデオ
+                    </h3>
+<!-- Video Player Mockup -->
+<div class="relative aspect-video bg-black rounded-xl overflow-hidden shadow-sm group">
+<div class="w-full h-full bg-cover bg-center opacity-80" data-alt="A professional screen recording of a software interface being demonstrated, with crisp text and high-contrast UI elements. The style is clean and technical, shot in a bright studio environment with neutral background lighting to emphasize clarity." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBZp4XPEo9dYHahY3WzvI_IRtum91Rf_oFo9adxiBj6yI6UMEaWb96rM0fV_wtLnJzNbMwwDZFQwT011Cx4uPptxwJPlj8MRuuqm-tFBVhRkQ93_iRITl9bVbLmDYslnAaLoWuRsYs4DAWhl73JWZTFuaDqS7tNFvhzQA5dxYpucjl2ttWCW6haD2u5txW1vCI02mdXKlveBijgA4ZHWDyoFl2MhU8SNOJRR2YLtzxV34x3MSrIdqdJDhP8MiwxHsiIYtk65xarWlQ-')"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<button class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-white text-[32px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+<!-- Video Controls Overlay -->
+<div class="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+<div class="h-full bg-primary w-1/3"></div>
+</div>
+</div>
+<button class="w-full bg-surface-container-highest text-primary border border-primary/20 flex items-center justify-center gap-2 py-3 rounded-xl font-label-md hover:bg-primary-fixed transition-colors active:scale-95">
+<span class="material-symbols-outlined">screenshot</span>
+                        静止画をキャプチャ
+                    </button>
+<div class="pt-6 border-t border-outline-variant/30">
+<h3 class="font-label-md text-on-surface-variant flex items-center justify-between mb-4">
+<span>キャプチャ済み画像</span>
+<span class="text-[10px] bg-outline-variant/20 px-2 py-0.5 rounded">12 枚</span>
+</h3>
+<!-- Image Gallery -->
+<div class="grid grid-cols-2 gap-2">
+<div class="group relative aspect-square bg-surface-container-high rounded-lg overflow-hidden border border-outline-variant cursor-pointer hover:ring-2 ring-primary transition-all">
+<div class="w-full h-full bg-cover bg-center" data-alt="A crisp screenshot showing a close-up of a software dashboard icon, featuring a gear and a profile avatar. High-precision minimalist design with Action Blue accent colors on a pristine white surface." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA6q9sEdlBaGKLWnNB1TPgLcxAhiqUBUHfiQogiF-WBecn_sk35uP8Mq25boFMPOlctWoF7tgnVHJjgvmVbohCTUqOPnVsgyQ4kCqqVyAMQbOnRcCVE82STTBvECgtAkHh8cxCgyxkc-JLdllY5jX5mzyO0zFPVzP7zSkidvruZL-C6p0vHv390b06yJhrumqTpcD-JQlUtMmL5KGPg-njRQi2hVYhT4Iu072DYxtBZTiygnxp5DxCzZ-LUZP-MJ4sCXKCq1_JvepZu')"></div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white">add</span>
+</div>
+</div>
+<div class="group relative aspect-square bg-surface-container-high rounded-lg overflow-hidden border border-outline-variant cursor-pointer hover:ring-2 ring-primary transition-all">
+<div class="w-full h-full bg-cover bg-center" data-alt="Technical documentation visual showing a detailed mouse cursor hovering over a specific setting button in a modern enterprise application. Soft ambient lighting and clean typography." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCaiSw5CO4B2bc94t8C2fPGholVTlIVuyh4AyZ6SeDVpoocSY2gMBpiiOliiyEdqOqzfMAt4DF6Kho2A3fWkcrHV-OjEhgQx_bUADZM2BQNmUyyZ_y0eXtIiHBb8zZ5tUU-FmFt1CvAOn2sARwalCFW-ozfWSERiRqV6PyVwCznVQ0gjVpOwYxre5zpVFxoetmCtOHVLTQDe3yOrYZ0PidQ831M6A2Mic3UaEtngVljhhkdxT6jSpuMiTVduZPdR4--IfzSEca_A-WJ')"></div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white">add</span>
+</div>
+</div>
+<div class="group relative aspect-square bg-surface-container-high rounded-lg overflow-hidden border border-outline-variant cursor-pointer hover:ring-2 ring-primary transition-all">
+<div class="w-full h-full bg-cover bg-center" data-alt="Detailed UI capture showing a drop-down menu with several professional icons and labels. The color palette is corporate blue and slate gray on a bright white background." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC36OPwGsk_SXXoh3nWkG5BK1XrY1hvqXNeBaZOvRq5jW0ctvDEhIns3VS3r_Lw-5XKDrWh46QsTA1t1GmC_9-K_TL_PbZwcWaCde8vWWHDfT2Z-kVaPHvQemyXfUGG-C3xupLGgbej-sGx_XTbpihSt61r6-Ufu8pIdRxMXwD_ia-cqL7nENl0FCxC6HnLVgbj0Vp5dBcBDr01Sl6hhinIWJV5zAfmFXkwBBS_AlTwLUP114HIVoFNycFIrPUQmZCEHJp6jksqRRs2')"></div>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white">add</span>
+</div>
+</div>
+<div class="group relative aspect-square bg-surface-container-high rounded-lg overflow-hidden border border-outline-variant flex items-center justify-center border-dashed">
+<span class="material-symbols-outlined text-outline">upload</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Middle Column: Editor (5/12) -->
+<section class="md:col-span-5 flex flex-col bg-surface-container-lowest overflow-hidden">
+<div class="px-6 py-3 border-b border-outline-variant flex items-center justify-between bg-surface-container-low/30">
+<div class="flex items-center gap-1">
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">format_bold</span></button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">format_italic</span></button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">format_list_bulleted</span></button>
+<div class="w-[1px] h-4 bg-outline-variant mx-1"></div>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">image</span></button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">link</span></button>
+</div>
+<span class="text-label-sm text-outline font-medium uppercase tracking-wider">Markdown Editor</span>
+</div>
+<div class="flex-1 p-6 overflow-y-auto">
+<div class="max-w-3xl mx-auto space-y-6">
+<input class="w-full border-none focus:ring-0 text-headline-lg font-headline-lg bg-transparent p-0 placeholder:text-outline-variant" placeholder="マニュアルのタイトルを入力" type="text" value="ソフトウェア導入ガイド"/>
+<div class="space-y-8 mt-10">
+<!-- Step 1 -->
+<div class="relative pl-8 border-l-2 border-primary-fixed">
+<span class="absolute left-[-11px] top-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold">1</span>
+<textarea class="w-full border-none focus:ring-0 text-body-lg bg-transparent p-0 resize-none font-medium text-on-surface" placeholder="ステップの概要を入力" rows="3">ダッシュボードにアクセスし、左側のナビゲーションから「設定」を選択します。</textarea>
+<div class="mt-4 p-4 rounded-xl border border-dashed border-outline-variant flex items-center justify-center gap-3 text-outline hover:border-primary/50 transition-colors cursor-pointer group">
+<span class="material-symbols-outlined group-hover:text-primary">add_photo_alternate</span>
+<span class="text-label-md">ここをクリックしてキャプチャ画像を追加</span>
+</div>
+</div>
+<!-- Step 2 (Active/Editing) -->
+<div class="relative pl-8 border-l-2 border-primary shadow-sm bg-primary-container/5 -mx-4 px-4 py-4 rounded-r-xl">
+<span class="absolute left-[-11px] top-4 w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold">2</span>
+<textarea class="w-full border-none focus:ring-0 text-body-lg bg-transparent p-0 resize-none font-medium text-on-surface" placeholder="手順を記述..." rows="4">設定画面の「プロファイル」タブを開き、ユーザー名の編集ボタンをクリックします。
+この時、画像のように右上の編集用アイコンが青く点灯していることを確認してください。</textarea>
+<div class="mt-4 relative group rounded-xl overflow-hidden shadow-md">
+<div class="w-full h-48 bg-cover bg-center" data-alt="High-resolution interface view showing a user profile editing modal within a minimalist SaaS platform. The modal has clean rounded corners and a primary blue call-to-action button, highlighted with a subtle instructional glow effect." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAsiKVEK32OCokR_81W0MqkjLpqbOnbMwE97Tup4euJaT6wsSozudqcET7d03-ENnY0ZTY6QEFCnB4r1rmfQGoGqC2DUbvR1CPL7toshHXjqdAJO1jGEvtczOSq51RU_nWrPR3OHiYu3OJ4vVlH1T80qHkB3Rg9rvaQqKw1jD8zSfH-tp9lTgiCV-MK040DyGSm1bWeT3bsDGMgKtI9WcUolkmIep9whFs4GZuRldef5lepWVcIuFOwfTpcW1R22FWgutnOfrW68Mm9')"></div>
+<div class="absolute top-2 right-2 flex gap-2">
+<button class="p-1.5 bg-white/90 shadow-sm rounded-lg text-error hover:bg-error hover:text-white transition-all"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</div>
+</div>
+<div class="flex gap-2 mt-4">
+<span class="px-3 py-1 bg-secondary-container/20 text-secondary rounded-full text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">auto_fix_high</span> AIが手順を提案
+                                    </span>
+</div>
+</div>
+</div>
+<button class="w-full py-4 border-2 border-dashed border-outline-variant/50 rounded-2xl flex items-center justify-center gap-2 text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+<span class="material-symbols-outlined">add</span>
+                            新しいステップを追加
+                        </button>
+</div>
+</div>
+</section>
+<!-- Right Column: Preview (4/12) -->
+<section class="hidden md:flex md:col-span-4 flex-col bg-surface-container-high overflow-hidden">
+<div class="px-6 py-3 border-b border-outline-variant flex items-center justify-between bg-white/40 backdrop-blur-sm">
+<span class="text-label-sm text-primary font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">visibility</span>
+                        プレビュー
+                    </span>
+<div class="flex gap-1">
+<button class="p-1 text-on-surface-variant"><span class="material-symbols-outlined text-[20px]">desktop_windows</span></button>
+<button class="p-1 text-outline-variant"><span class="material-symbols-outlined text-[20px]">smartphone</span></button>
+</div>
+</div>
+<div class="flex-1 p-8 overflow-y-auto bg-[#F1F5F9]">
+<div class="bg-white shadow-xl rounded-sm min-h-[1000px] p-10 max-w-lg mx-auto transform scale-95 origin-top">
+<header class="border-b-2 border-primary pb-4 mb-8">
+<h2 class="text-2xl font-bold text-on-surface">ソフトウェア導入ガイド</h2>
+<p class="text-sm text-outline mt-1">作成日: 2023年10月24日 | 著者: 管理者</p>
+</header>
+<div class="space-y-10">
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="text-xl font-bold text-primary">01</span>
+<h4 class="text-lg font-bold">ダッシュボードへのアクセス</h4>
+</div>
+<p class="text-sm leading-relaxed text-on-surface-variant">ダッシュボードにアクセスし、左側のナビゲーションから「設定」を選択します。</p>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="text-xl font-bold text-primary">02</span>
+<h4 class="text-lg font-bold">ユーザー情報の編集</h4>
+</div>
+<p class="text-sm leading-relaxed text-on-surface-variant">設定画面の「プロファイル」タブを開き、ユーザー名の編集ボタンをクリックします。この時、画像のように右上の編集用アイコンが青く点灯していることを確認してください。</p>
+<div class="rounded-lg overflow-hidden border border-outline-variant">
+<div class="w-full h-32 bg-cover bg-center" data-alt="Clean corporate UI screenshot of a profile management screen, highlighting the user information editing area. The aesthetic is modern and accessible, with ample whitespace and clear instructional visual hierarchy." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAoq39DFneCX-OHJasjHRdpFhiGPq7MYUkUCYYg02e-ZmyO5Ty8pGpyImv5kR9YWg-GHwamtf1v3F99dtA33lyHM57h1B9_TD_8C9iv0JR5TXcRTQK3K1ZWYpeJvbP2DhR9ZXXGeXA9Xg0sliZCHBGaunpz0k4jqFlxySQlnp_3YvIzFaEajMvREXScJCdXXSiWIOU4d9UuwUowuXR8R-saPfzdHKVTGSCtksJrAEqvZNBXEX3heXKlbYXUrE161Syg5784wX7VkwVQ')"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Mobile Nav (JSON Logic - Suppressed on Desktop) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface border-t border-outline-variant">
+<div class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">ホーム</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-5 py-1">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-label-sm text-label-sm">作成</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm">マイページ</span>
+</div>
+</nav>
+<script>
+        // Micro-interactions for the editor
+        document.addEventListener('DOMContentLoaded', () => {
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(ta => {
+                ta.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = (this.scrollHeight) + 'px';
+                });
+                // Initial trigger
+                ta.dispatchEvent(new Event('input'));
+            });
+
+            // Smooth Hover Effects and active states (Simulated logic)
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.addEventListener('mousedown', () => btn.classList.add('scale-95'));
+                btn.addEventListener('mouseup', () => btn.classList.remove('scale-95'));
+                btn.addEventListener('mouseleave', () => btn.classList.remove('scale-95'));
+            });
+        });
+    </script>
+</body></html>

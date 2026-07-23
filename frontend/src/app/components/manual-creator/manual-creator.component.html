@@ -1,0 +1,208 @@
+<div class="app-layout">
+  <!-- Sidebar Navigation (Desktop) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <lucide-icon [name]="SparklesIcon"></lucide-icon>
+      </div>
+      <h1 class="brand-title">ManualAI</h1>
+    </div>
+    
+    <nav class="nav-menu">
+      <a class="nav-item" routerLink="/">
+        <lucide-icon [name]="DashboardIcon" class="nav-icon"></lucide-icon>
+        <span>ダッシュボード</span>
+      </a>
+      <a class="nav-item active" routerLink="/create">
+        <lucide-icon [name]="PlusIcon" class="nav-icon"></lucide-icon>
+        <span>新規作成</span>
+      </a>
+
+      <!-- Divider & Recent Manuals -->
+      <hr class="sidebar-divider">
+      
+      <div class="recent-manuals-section">
+        <span class="sidebar-section-title">最近の手順書 (直近5件)</span>
+        <div class="recent-list">
+          <a 
+            *ngFor="let rm of recentManuals" 
+            [routerLink]="['/edit', rm.id]" 
+            class="recent-item" 
+            [title]="rm.title"
+          >
+            <lucide-icon [name]="FileTextIcon" class="recent-icon"></lucide-icon>
+            <span class="recent-title">{{ rm.title }}</span>
+          </a>
+          <span *ngIf="!recentManuals || recentManuals.length === 0" class="no-recent">手順書がありません</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+
+  <!-- Main Canvas -->
+  <main class="main-canvas">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <button class="back-btn" routerLink="/" title="ダッシュボードへ戻る">
+          <lucide-icon [name]="ArrowLeftIcon"></lucide-icon>
+        </button>
+        <h2 class="header-title">マニュアル新規作成</h2>
+      </div>
+    </header>
+
+    <!-- Form Content Area -->
+    <div class="creator-container">
+      
+      <div class="form-wrapper animate-slide-up">
+        
+        <!-- Error Alert -->
+        <div class="alert alert-error" *ngIf="errorMessage">
+          <lucide-icon [name]="AlertIcon" class="alert-icon"></lucide-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <!-- Section 1: Video File Upload -->
+        <div class="card form-card">
+          <div class="card-header">
+            <div class="card-icon-badge">
+              <lucide-icon [name]="VideoFileIcon"></lucide-icon>
+            </div>
+            <div>
+              <h3 class="card-title">1. 動画ファイルのアップロード</h3>
+              <p class="card-subtitle">操作手順が録画された動画（MP4, MOV, WebM など）を選択してください。</p>
+            </div>
+          </div>
+
+          <div 
+            class="dropzone"
+            [class.has-file]="selectedFile"
+            (dragover)="onDragOver($event)"
+            (drop)="onDrop($event)"
+            (click)="fileInput.click()"
+          >
+            <input 
+              #fileInput 
+              type="file" 
+              accept="video/*" 
+              class="hidden-input" 
+              (change)="onFileSelected($event)"
+            >
+
+            <div class="dropzone-content" *ngIf="!selectedFile">
+              <div class="upload-circle">
+                <lucide-icon [name]="UploadIcon" class="upload-icon"></lucide-icon>
+              </div>
+              <p class="dropzone-title">動画ファイルをドラッグ＆ドロップ</p>
+              <p class="dropzone-sub">または <span class="browse-link">ファイルを選択</span></p>
+              <span class="file-hint">最大 500MB（推奨: 1〜5分程度の操作動画）</span>
+            </div>
+
+            <div class="selected-file-info" *ngIf="selectedFile">
+              <div class="file-icon-wrapper">
+                <lucide-icon [name]="CheckIcon" class="check-icon"></lucide-icon>
+              </div>
+              <div class="file-details">
+                <span class="file-name">{{ selectedFile.name }}</span>
+                <span class="file-size">{{ (selectedFile.size / (1024 * 1024)) | number:'1.1-2' }} MB</span>
+              </div>
+              <button class="change-file-btn" (click)="$event.stopPropagation(); selectedFile = null">
+                変更
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: AI Model Selection -->
+        <div class="card form-card">
+          <div class="card-header">
+            <div class="card-icon-badge badge-indigo">
+              <lucide-icon [name]="SparklesIcon"></lucide-icon>
+            </div>
+            <div>
+              <h3 class="card-title">2. 解析に使用するAIモデル</h3>
+              <p class="card-subtitle">解析スピードや推論精度に応じたGeminiモデルを選択できます（デフォルト: Gemini 3.5 Flash）。</p>
+            </div>
+          </div>
+
+          <div class="model-selection-grid">
+            <label 
+              *ngFor="let model of aiModels" 
+              class="model-card" 
+              [class.selected]="selectedModel === model.id"
+            >
+              <input 
+                type="radio" 
+                name="aiModel" 
+                [value]="model.id" 
+                [(ngModel)]="selectedModel"
+                class="hidden-radio"
+              >
+              <div class="model-card-header">
+                <span class="model-name">{{ model.name }}</span>
+                <span class="model-badge" [ngClass]="model.badgeClass">{{ model.badge }}</span>
+              </div>
+              <p class="model-desc">{{ model.description }}</p>
+            </label>
+          </div>
+        </div>
+
+        <!-- Section 3: AI Generation Prompt -->
+        <div class="card form-card">
+          <div class="card-header">
+            <div class="card-icon-badge badge-indigo">
+              <lucide-icon [name]="SparklesIcon"></lucide-icon>
+            </div>
+            <div>
+              <h3 class="card-title">3. AIプロンプト指示（オプション）</h3>
+              <p class="card-subtitle">生成の際の注意点やターゲット読者に関する指示を追加できます。</p>
+            </div>
+          </div>
+
+          <textarea 
+            [(ngModel)]="promptInstruction" 
+            class="prompt-textarea" 
+            placeholder="例: 初心者向けに専門用語を避けて分かりやすく作成してください。また、セキュリティ設定の注意点を重点的に記述してください。"
+            rows="3"
+          ></textarea>
+        </div>
+
+
+        <!-- Section 3: Upload Progress / Generating State -->
+        <div class="status-card" *ngIf="isUploading || isGenerating">
+          <div class="status-content">
+            <div class="spinner"></div>
+            
+            <div class="status-text" *ngIf="isUploading">
+              <h4>動画ファイルをアップロード中...</h4>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" [style.width.%]="uploadProgress"></div>
+              </div>
+              <span class="progress-percent">{{ uploadProgress }}% 完了</span>
+            </div>
+
+            <div class="status-text" *ngIf="isGenerating">
+              <h4>AIが動画と音声を解析し手順書を自動生成中...</h4>
+              <p>Gemini 3.5 Flash が映像から重要な操作フレームを抽出・文章化しています（通常10〜30秒程度かかります）</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+          <button 
+            class="btn btn-primary btn-submit" 
+            [disabled]="!selectedFile || isUploading || isGenerating"
+            (click)="generateManual()"
+          >
+            <lucide-icon [name]="SparklesIcon" class="icon-left"></lucide-icon>
+            {{ isGenerating ? '手順書を生成中...' : (isUploading ? 'アップロード中...' : '手順書を自動生成する') }}
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
