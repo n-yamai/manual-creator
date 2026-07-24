@@ -435,6 +435,21 @@ export class ManualEditorComponent implements OnInit {
     }
   }
 
+  selectTool(tool: 'crop' | 'rect' | 'circle' | 'arrow'): void {
+    if (this.cropSelected || this.selectedTool === 'crop') {
+      // Clear any preview dashed crop box by restoring last committed state
+      if (this.historyStack.length > 0 && this.canvasCtx && this.editorCanvas) {
+        const lastState = this.historyStack[this.historyStack.length - 1];
+        const canvas = this.editorCanvas.nativeElement;
+        canvas.width = lastState.width;
+        canvas.height = lastState.height;
+        this.canvasCtx.putImageData(lastState, 0, 0);
+      }
+    }
+    this.selectedTool = tool;
+    this.cropSelected = false;
+  }
+
   onCanvasMouseDown(event: MouseEvent): void {
     if (!this.canvasCtx || !this.editorCanvas) return;
     const rect = this.editorCanvas.nativeElement.getBoundingClientRect();
@@ -470,6 +485,12 @@ export class ManualEditorComponent implements OnInit {
       const cropH = Math.abs(this.currentY - this.startY);
       if (cropW > 10 && cropH > 10) {
         this.cropSelected = true;
+      } else {
+        // Clear preview if selection is too small
+        this.cropSelected = false;
+        if (this.historyStack.length > 0) {
+          this.canvasCtx.putImageData(this.historyStack[this.historyStack.length - 1], 0, 0);
+        }
       }
     } else {
       // Commit drawn shape into history
@@ -546,7 +567,13 @@ export class ManualEditorComponent implements OnInit {
 
     if (w < 10 || h < 10) return;
 
-    // Crop current image data
+    // Restore clean image state WITHOUT dashed crop box preview before extracting image data
+    if (this.historyStack.length > 0) {
+      const lastState = this.historyStack[this.historyStack.length - 1];
+      this.canvasCtx.putImageData(lastState, 0, 0);
+    }
+
+    // Crop clean image data
     const croppedData = this.canvasCtx.getImageData(x, y, w, h);
 
     // Resize canvas
@@ -559,8 +586,16 @@ export class ManualEditorComponent implements OnInit {
   }
 
   saveEditedImage(): void {
-    if (!this.editorCanvas || !this.editingImage) return;
+    if (!this.editorCanvas || !this.editingImage || !this.canvasCtx) return;
     this.isSavingEditedImage = true;
+    
+    // If crop box preview is present but applyCrop wasn't clicked, clear the dashed box preview first
+    if (this.cropSelected && this.historyStack.length > 0) {
+      const lastState = this.historyStack[this.historyStack.length - 1];
+      this.canvasCtx.putImageData(lastState, 0, 0);
+      this.cropSelected = false;
+    }
+
     const canvas = this.editorCanvas.nativeElement;
 
     canvas.toBlob((blob) => {

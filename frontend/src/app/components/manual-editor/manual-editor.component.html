@@ -281,7 +281,7 @@
         <button 
           class="tool-btn" 
           [class.active]="selectedTool === 'rect'" 
-          (click)="selectedTool = 'rect'; cropSelected = false"
+          (click)="selectTool('rect')"
           title="四角 (矩形) を描画"
         >
           <lucide-icon [name]="SquareIcon"></lucide-icon>
@@ -290,7 +290,7 @@
         <button 
           class="tool-btn" 
           [class.active]="selectedTool === 'circle'" 
-          (click)="selectedTool = 'circle'; cropSelected = false"
+          (click)="selectTool('circle')"
           title="丸 (楕円) を描画"
         >
           <lucide-icon [name]="CircleIcon"></lucide-icon>
@@ -299,7 +299,7 @@
         <button 
           class="tool-btn" 
           [class.active]="selectedTool === 'arrow'" 
-          (click)="selectedTool = 'arrow'; cropSelected = false"
+          (click)="selectTool('arrow')"
           title="矢印を描画"
         >
           <lucide-icon [name]="ArrowIcon"></lucide-icon>
@@ -308,7 +308,7 @@
         <button 
           class="tool-btn" 
           [class.active]="selectedTool === 'crop'" 
-          (click)="selectedTool = 'crop'"
+          (click)="selectTool('crop')"
           title="ドラッグ範囲で切り抜き (トリミング)"
         >
           <lucide-icon [name]="CropIcon"></lucide-icon>

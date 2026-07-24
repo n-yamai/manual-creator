@@ -119,7 +119,7 @@ class PDFService:
 
             /* Images */
             .image-container {
-                text-align: center;
+                text-align: left;
                 margin: 20px 0;
                 page-break-inside: avoid;
             }
