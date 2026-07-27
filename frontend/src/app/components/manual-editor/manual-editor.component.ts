@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -30,9 +30,14 @@ import {
   Circle,
   MoveRight,
   Maximize2,
+  Minimize2,
   Undo2,
-  X
+  X,
+  Sparkles,
+  Wand2
 } from 'lucide-angular';
+
+
 
 
 
@@ -53,16 +58,88 @@ export class ManualEditorComponent implements OnInit {
   isExtracting = false;
   error = '';
   
+  // Export dropdown state
+  isExportDropdownOpen = false;
+
   // Tab control (useful on mobile/tablet)
   activeTab: 'edit' | 'preview' = 'edit';
   
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
+  @ViewChild('exportDropdownRef') exportDropdownRef!: ElementRef;
+
+  toggleExportDropdown(event: Event): void {
+    event.stopPropagation();
+    this.isExportDropdownOpen = !this.isExportDropdownOpen;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.isExportDropdownOpen) {
+      this.isExportDropdownOpen = false;
+    }
+  }
+
+
+  // AI Refine properties
+  refineInstruction = '';
+  isRefining = false;
+  refineError = '';
+  refineSuccessMessage = '';
+
+  presetInstructions = [
+    { label: '⚠️ 注意点を追加', prompt: '各操作手順の前に、「⚠️ 注意点」やセキュリティ・安全上の確認事項を太字でわかりやすく追記してください。' },
+    { label: '🔰 初心者向けに平易化', prompt: '専門用語をわかりやすい言葉に噛み砕き、操作に迷わない丁寧な表現にリライトしてください。' },
+    { label: '📌 箇条書きで整理', prompt: '文章を整理し、視認性の高い箇条書きやステップ一覧のフォーマットに書き直してください。' },
+    { label: '🔍 誤字脱字・表現校正', prompt: '誤字脱字をチェック・修正し、ビジネス文書として自然で読みやすい表現に統一してください。' }
+  ];
+
+  setPresetInstruction(promptText: string): void {
+    this.refineInstruction = promptText;
+    this.refineError = '';
+  }
+
+  applyAiRefine(): void {
+    if (!this.refineInstruction.trim()) {
+      this.refineError = 'AIへの指示プロンプトを入力してください。';
+      return;
+    }
+
+    if (!this.manual || !this.manual.content) {
+      this.refineError = '修正対象の手順書本文がありません。';
+      return;
+    }
+
+    this.isRefining = true;
+    this.refineError = '';
+    this.refineSuccessMessage = '';
+
+    this.apiService.refineManual(this.manualId, this.refineInstruction, this.manual.content).subscribe({
+      next: (res) => {
+        this.isRefining = false;
+        if (res && res.refined_content) {
+          this.manual.content = res.refined_content;
+          this.refineSuccessMessage = 'AIによる本文の修正が完了しました！';
+          setTimeout(() => {
+            this.refineSuccessMessage = '';
+          }, 4000);
+        }
+      },
+      error: (err) => {
+        this.isRefining = false;
+        this.refineError = 'AIによる修正中にエラーが発生しました。時間を置いて再度お試しください。';
+        console.error(err);
+      }
+    });
+  }
 
   // Icons
   ArrowLeftIcon = ArrowLeft;
   SaveIcon = Save;
   DownloadIcon = Download;
   FileTextIcon = FileText;
+  SparklesIcon = Sparkles;
+  WandIcon = Wand2;
+
   CodeIcon = Code;
   VideoIcon = Video;
   PlayIcon = Play;
@@ -207,16 +284,20 @@ export class ManualEditorComponent implements OnInit {
   }
 
   downloadPdf(): void {
+    this.isExportDropdownOpen = false;
     window.open(this.apiService.getPdfUrl(this.manualId), '_blank');
   }
 
   downloadHtml(): void {
+    this.isExportDropdownOpen = false;
     window.open(this.apiService.getHtmlUrl(this.manualId), '_blank');
   }
 
   downloadMarkdown(): void {
+    this.isExportDropdownOpen = false;
     window.open(this.apiService.getMarkdownUrl(this.manualId), '_blank');
   }
+
 
   // Formats markdown content for preview: fixes relative image URLs and unreplaced placeholders
   getFormattedContent(): string {
@@ -317,13 +398,20 @@ export class ManualEditorComponent implements OnInit {
   selectedLineWidth = 4;
   isSavingEditedImage = false;
   cropSelected = false;
+  initialCanvasWidth = 0;
+  initialCanvasHeight = 0;
+
 
   CropIcon = Crop;
   SquareIcon = Square;
   CircleIcon = Circle;
   ArrowIcon = MoveRight;
+  Maximize2Icon = Maximize2;
+  MinimizeIcon = Minimize2;
   UndoIcon = Undo2;
+  XIcon = X;
   CloseIcon = X;
+
 
   colorOptions = [
     { name: '赤', value: '#ef4444' },
@@ -395,6 +483,9 @@ export class ManualEditorComponent implements OnInit {
 
       canvas.width = width;
       canvas.height = height;
+      this.initialCanvasWidth = width;
+      this.initialCanvasHeight = height;
+
 
       if (this.canvasCtx) {
         this.canvasCtx.drawImage(img, 0, 0, width, height);
@@ -584,6 +675,46 @@ export class ManualEditorComponent implements OnInit {
     this.cropSelected = false;
     this.saveCanvasState();
   }
+
+  resizeImage(scalePercent: number): void {
+    if (!this.canvasCtx || !this.editorCanvas) return;
+    const canvas = this.editorCanvas.nativeElement;
+    
+    let newWidth: number;
+    let newHeight: number;
+
+    if (scalePercent === 100) {
+      newWidth = this.initialCanvasWidth || canvas.width;
+      newHeight = this.initialCanvasHeight || canvas.height;
+    } else {
+      newWidth = Math.round(canvas.width * (scalePercent / 100));
+      newHeight = Math.round(canvas.height * (scalePercent / 100));
+    }
+
+    if (newWidth < 40 || newHeight < 40) return;
+
+    // Create temp canvas with current drawing
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    tempCtx.putImageData(this.canvasCtx.getImageData(0, 0, canvas.width, canvas.height), 0, 0);
+
+    // Resize canvas
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+
+    // Draw scaled image back with smooth interpolation
+    this.canvasCtx.imageSmoothingEnabled = true;
+    this.canvasCtx.imageSmoothingQuality = 'high';
+    this.canvasCtx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, newWidth, newHeight);
+
+    this.cropSelected = false;
+    this.saveCanvasState();
+  }
+
+
 
   saveEditedImage(): void {
     if (!this.editorCanvas || !this.editingImage || !this.canvasCtx) return;

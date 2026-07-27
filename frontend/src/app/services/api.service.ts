@@ -104,6 +104,15 @@ export class ApiService {
     return this.http.post<ManualImage>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}/update`, formData);
   }
 
+  refineManual(manualId: number, instruction: string, currentContent: string, modelName: string = 'gemini-3.5-flash'): Observable<{ refined_content: string }> {
+    return this.http.post<{ refined_content: string }>(`${this.apiUrl}/manuals/${manualId}/refine`, {
+      instruction,
+      current_content: currentContent,
+      model_name: modelName
+    });
+  }
+
+
 
 
   getPdfUrl(id: number): string {

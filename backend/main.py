@@ -18,8 +18,10 @@ from database import engine, Base, get_db
 from models import Manual, ManualImage
 from schemas import (
     ManualResponse, ManualDetailResponse, ManualUpdate, 
-    ManualCreate, ManualImageResponse, ExtractFrameRequest
+    ManualCreate, ManualImageResponse, ExtractFrameRequest,
+    ManualRefineRequest, ManualRefineResponse
 )
+
 
 from services.video_service import VideoService
 from services.gemini_service import GeminiService
@@ -363,6 +365,34 @@ async def update_manual_image(
     db.commit()
     db.refresh(image)
     return image
+
+@app.post("/api/manuals/{manual_id}/refine", response_model=ManualRefineResponse)
+def refine_manual(
+    manual_id: int, 
+    req: ManualRefineRequest, 
+    db: Session = Depends(get_db)
+):
+    """
+    Uses Gemini API to refine and rewrite manual markdown content according to user prompt instructions.
+    """
+    manual = db.query(Manual).filter(Manual.id == manual_id).first()
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual not found")
+
+    content_to_refine = req.current_content if req.current_content else (manual.content or "")
+    if not content_to_refine.strip():
+        raise HTTPException(status_code=400, detail="Content to refine is empty")
+
+    try:
+        refined_content = gemini_service.refine_manual_content(
+            current_content=content_to_refine,
+            instruction=req.instruction,
+            model_name=req.model_name or "gemini-3.5-flash"
+        )
+        return ManualRefineResponse(refined_content=refined_content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI Refinement failed: {str(e)}")
+
 
 
 

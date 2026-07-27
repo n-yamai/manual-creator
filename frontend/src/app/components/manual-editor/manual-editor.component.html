@@ -18,8 +18,8 @@
 
     <div class="header-actions">
       <!-- Export Dropdown -->
-      <div class="export-dropdown group">
-        <button class="btn btn-secondary dropdown-btn">
+      <div class="export-dropdown group" [class.is-open]="isExportDropdownOpen" #exportDropdownRef>
+        <button class="btn btn-secondary dropdown-btn" (click)="toggleExportDropdown($event)">
           <lucide-icon [name]="DownloadIcon" class="icon-left"></lucide-icon>
           書き出し
           <lucide-icon [name]="ChevronDownIcon" class="icon-right"></lucide-icon>
@@ -40,6 +40,7 @@
           </button>
         </div>
       </div>
+
 
       <!-- Save Button -->
       <button 
@@ -214,7 +215,62 @@
           placeholder="# 手順書の作成&#10;&#10;ここにMarkdown形式で内容を記述してください..."
         ></textarea>
       </div>
+
+      <!-- AI Refine Panel -->
+      <div class="card ai-refine-card">
+        <div class="card-title-bar">
+          <div class="bar-title">
+            <lucide-icon [name]="WandIcon" class="bar-icon ai-purple-icon"></lucide-icon>
+            <span>✨ AIアシスタントによる手順書補正・プロンプト指示</span>
+          </div>
+        </div>
+
+        <div class="ai-refine-body">
+          <!-- Preset buttons -->
+          <div class="preset-group">
+            <span class="preset-label">クイック指示:</span>
+            <div class="preset-buttons">
+              <button 
+                *ngFor="let preset of presetInstructions" 
+                class="preset-btn" 
+                (click)="setPresetInstruction(preset.prompt)"
+                [disabled]="isRefining"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Prompt textarea & Submit -->
+          <div class="refine-input-row">
+            <textarea 
+              [(ngModel)]="refineInstruction" 
+              class="refine-textarea" 
+              placeholder="例: 各手順の前に『⚠️ 注意点』を太字で追加し、初心者にもわかりやすい言葉遣いにリライトしてください。"
+              rows="2"
+              [disabled]="isRefining"
+            ></textarea>
+            <button 
+              class="btn btn-primary refine-submit-btn" 
+              (click)="applyAiRefine()" 
+              [disabled]="isRefining || !refineInstruction.trim()"
+            >
+              <lucide-icon [name]="SparklesIcon" class="icon-left"></lucide-icon>
+              {{ isRefining ? 'AI補正中...' : 'AIで修正' }}
+            </button>
+          </div>
+
+          <!-- Alert / Status -->
+          <div class="refine-alert alert-error" *ngIf="refineError">
+            {{ refineError }}
+          </div>
+          <div class="refine-alert alert-success" *ngIf="refineSuccessMessage">
+            {{ refineSuccessMessage }}
+          </div>
+        </div>
+      </div>
     </section>
+
 
     <!-- Right Column: Document Live Preview Paper -->
     <section class="workspace-column preview-column" [class.mobile-hidden]="activeTab !== 'preview'">
@@ -316,7 +372,27 @@
         </button>
       </div>
 
+      <!-- Resize Group -->
       <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">サイズ調整:</span>
+        <button class="tool-btn" (click)="resizeImage(100)" title="100% (元のサイズに戻す)">
+          <lucide-icon [name]="Maximize2Icon"></lucide-icon>
+          <span>100%</span>
+        </button>
+        <button class="tool-btn" (click)="resizeImage(75)" title="75%の大きさに縮小">
+          <lucide-icon [name]="MinimizeIcon"></lucide-icon>
+          <span>75%</span>
+        </button>
+        <button class="tool-btn" (click)="resizeImage(50)" title="50%の大きさに縮小">
+          <lucide-icon [name]="MinimizeIcon"></lucide-icon>
+          <span>50%</span>
+        </button>
+      </div>
+
+
+      <div class="toolbar-divider"></div>
+
 
       <!-- Color Selection -->
       <div class="toolbar-group" *ngIf="selectedTool !== 'crop'">

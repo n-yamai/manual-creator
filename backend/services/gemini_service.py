@@ -102,3 +102,46 @@ class GeminiService:
             except:
                 pass
             raise e
+
+    def refine_manual_content(self, current_content: str, instruction: str, model_name: str = "gemini-3.5-flash") -> str:
+        """
+        Refines and rewrites the current manual Markdown content based on user prompt instructions.
+        """
+        target_model = model_name if model_name else "gemini-3.5-flash"
+        logger.info(f"Refining manual content using Gemini (Model: {target_model})...")
+
+        prompt = (
+            "You are a professional technical writer and manual editing expert.\n"
+            "Rewrite and refine the provided 【Current Manual Content (Markdown)】 according to the 【User Instruction】.\n\n"
+            "Strict Requirements:\n"
+            "1. Output ONLY the rewritten Markdown text. Do NOT include greetings, explanations, or markdown code block fences (like ```markdown).\n"
+            "2. Preserve existing image tags (e.g., `![alt](url)`) and important document structures, while applying the requested changes or additions.\n"
+            "3. Correct any typos and improve clarity for professional documentation.\n\n"
+            f"【Current Manual Content (Markdown)】:\n{current_content}\n\n"
+            f"【User Instruction】:\n{instruction}\n"
+        )
+
+        try:
+            response = self.client.models.generate_content(
+                model=target_model,
+                contents=[prompt],
+                config=types.GenerateContentConfig(
+                    temperature=0.3,
+                )
+            )
+
+            text = response.text.strip()
+            # Clean code block markdown wrapper if model included it
+            if text.startswith("```markdown"):
+                text = text[11:]
+            elif text.startswith("```"):
+                text = text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+
+            return text.strip()
+
+        except Exception as e:
+            logger.error(f"Error calling Gemini API for content refinement: {e}")
+            raise e
+

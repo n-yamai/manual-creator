@@ -49,6 +49,7 @@ class PDFService:
                 margin-top: 1.5em;
                 margin-bottom: 0.5em;
                 page-break-after: avoid;
+                break-after: avoid;
             }
 
             h1 {
@@ -68,6 +69,13 @@ class PDFService:
                 font-size: 14pt;
             }
 
+            /* Step Block - Prevents entire procedure step from splitting across page boundary */
+            .step-block {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                margin-bottom: 1.5em;
+            }
+
             p {
                 margin-top: 0;
                 margin-bottom: 1em;
@@ -78,10 +86,14 @@ class PDFService:
                 margin-top: 0;
                 margin-bottom: 1em;
                 padding-left: 20px;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
 
             li {
                 margin-bottom: 0.5em;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
 
             /* Code blocks */
@@ -100,6 +112,7 @@ class PDFService:
                 border-radius: 6px;
                 overflow: auto;
                 page-break-inside: avoid;
+                break-inside: avoid;
             }
 
             pre code {
@@ -115,22 +128,29 @@ class PDFService:
                 border-left: 4px solid #3182CE;
                 color: #2B6CB0;
                 page-break-inside: avoid;
+                break-inside: avoid;
             }
 
-            /* Images */
+            /* Images - Auto-resized to fit within A4 page height alongside text */
             .image-container {
                 text-align: left;
-                margin: 20px 0;
+                margin: 12px 0;
                 page-break-inside: avoid;
+                break-inside: avoid;
             }
 
             img {
                 max-width: 100%;
+                max-height: 105mm;
+                object-fit: contain;
                 height: auto;
                 border-radius: 6px;
                 box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
                 border: 1px solid #E2E8F0;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
+
 
             /* Tables */
             table {
@@ -138,7 +158,14 @@ class PDFService:
                 border-collapse: collapse;
                 margin-bottom: 1.5em;
                 page-break-inside: avoid;
+                break-inside: avoid;
             }
+
+            tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
 
             th, td {
                 border: 1px solid #CBD5E0;
@@ -246,12 +273,29 @@ class PDFService:
             html_body
         )
 
+        # Wrap h2/h3 sections into step-blocks to prevent page break splitting
+        pattern = r'(<h[23][^>]*>.*?</h[23]>)'
+        parts = re.split(pattern, html_body, flags=re.DOTALL)
+        
+        wrapped_parts = []
+        if parts[0].strip():
+            wrapped_parts.append(parts[0])
+            
+        for i in range(1, len(parts), 2):
+            heading = parts[i]
+            body_content = parts[i+1] if (i+1) < len(parts) else ""
+            wrapped_parts.append(f'<div class="step-block">{heading}{body_content}</div>')
+            
+        if len(parts) > 1:
+            html_body = "".join(wrapped_parts)
+
         template = Template(cls.HTML_TEMPLATE)
         return template.render(
             title=title,
             content=html_body,
             created_at=created_at_str
         )
+
 
     @classmethod
     def generate_pdf(cls, title: str, markdown_content: str, created_at_str: str, output_path: str):

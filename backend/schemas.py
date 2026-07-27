@@ -54,3 +54,15 @@ class ManualDetailResponse(ManualResponse):
 class GenerateRequest(BaseModel):
     title: str
     prompt_instruction: Optional[str] = None
+
+class ManualRefineRequest(BaseModel):
+    instruction: str
+    current_content: str
+    model_name: Optional[str] = "gemini-3.5-flash"
+
+    model_config = {'protected_namespaces': ()}
+
+class ManualRefineResponse(BaseModel):
+    refined_content: str
+
+
