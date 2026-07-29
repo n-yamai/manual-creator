@@ -143,9 +143,15 @@ export class ManualCreatorComponent implements OnInit {
       error: (err) => {
         this.isUploading = false;
         this.isGenerating = false;
-        this.errorMessage = '手順書の生成中にエラーが発生しました。GEMINI_API_KEYの設定や動画の形式（音声が含まれているかなど）を確認してください。';
+        const apiDetail = err.error?.detail;
+        if (apiDetail && typeof apiDetail === 'string') {
+          this.errorMessage = apiDetail;
+        } else {
+          this.errorMessage = '手順書の生成中にエラーが発生しました。ネットワーク接続やAPIキー設定をご確認ください。';
+        }
         console.error(err);
       }
+
     });
   }
 }

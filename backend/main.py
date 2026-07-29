@@ -153,7 +153,8 @@ async def upload_and_generate_manual(
         # Cleanup video if generation fails
         if os.path.exists(video_save_path):
             os.remove(video_save_path)
-        raise HTTPException(status_code=500, detail=f"AI Generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
     # 3. Create Manual in Database
     db_manual = Manual(
@@ -391,7 +392,8 @@ def refine_manual(
         )
         return ManualRefineResponse(refined_content=refined_content)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI Refinement failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 

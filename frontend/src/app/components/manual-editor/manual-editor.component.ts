@@ -126,9 +126,15 @@ export class ManualEditorComponent implements OnInit {
       },
       error: (err) => {
         this.isRefining = false;
-        this.refineError = 'AIによる修正中にエラーが発生しました。時間を置いて再度お試しください。';
+        const apiDetail = err.error?.detail;
+        if (apiDetail && typeof apiDetail === 'string') {
+          this.refineError = apiDetail;
+        } else {
+          this.refineError = 'AIによる修正中にエラーが発生しました。時間をおくかネットワーク接続をご確認ください。';
+        }
         console.error(err);
       }
+
     });
   }
 

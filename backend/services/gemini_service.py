@@ -19,6 +19,42 @@ class ManualGenerationResult(BaseModel):
     content: str
     keyframes: List[KeyframeInfo]
 
+def parse_gemini_error(e: Exception) -> str:
+    """
+    Parses Exception objects raised by Gemini API / google-genai / HTTP requests
+    and returns a user-friendly, descriptive Japanese error message.
+    """
+    error_str = str(e)
+    error_type = type(e).__name__
+
+    # 1. 認証エラー・APIキー無効 (401, 403, PermissionDenied, Unauthenticated)
+    if any(k in error_str for k in ["401", "403", "API_KEY_INVALID", "API key not valid", "PermissionDenied", "Unauthenticated", "UNAUTHENTICATED", "PERMISSION_DENIED"]):
+        return "【認証エラー】Gemini APIキーが無効であるか、アクセス権限がありません。GEMINI_API_KEYの設定をご確認ください。"
+
+    # 2. クォータ制限・利用制限・クレジット不足 (429, ResourceExhausted, QuotaExceeded)
+    if any(k in error_str for k in ["429", "RESOURCE_EXHAUSTED", "QuotaExceeded", "quota", "Rate limit", "rate_limit"]):
+        return "【利用制限/クレジット不足】Gemini APIの利用制限（レートリミットまたはクォータ制限・クレジット不足）に達しました。時間をおくか、APIの利用契約・課金設定をご確認ください。"
+
+    # 3. リソース不在・モデル名エラー (404, NotFound)
+    if any(k in error_str for k in ["404", "NOT_FOUND", "NotFound", "model not found"]):
+        return "【モデル/リソース不在エラー】指定されたAIモデルが見つかりません。有効なGeminiモデルが選択されているかご確認ください。"
+
+    # 4. リクエスト不正 (400, InvalidArgument)
+    if any(k in error_str for k in ["400", "INVALID_ARGUMENT", "InvalidArgument"]):
+        return f"【リクエスト不正エラー】送信されたデータまたはパラメーターが不正です。動画フォーマットや指示文をご確認ください。（詳細: {error_str}）"
+
+    # 5. Gemini API サーバーエラー (500, 502, 503, 504, ServerError, ServiceUnavailable)
+    if any(k in error_str for k in ["500", "502", "503", "504", "INTERNAL", "UNAVAILABLE", "ServiceUnavailable", "InternalServerError"]):
+        return "【Gemini APIサーバーエラー】Google Gemini APIサーバー側で一時的な障害が発生しています。しばらく時間を置いてから再度お試しください。"
+
+    # 6. 通信・ネットワークエラー (ConnectError, TimeoutError, ConnectionRefused, DNS)
+    if any(k in error_type for k in ["Connect", "Timeout", "Network", "Connection"]) or any(k in error_str for k in ["connection", "timeout", "timed out", "NameResolutionError"]):
+        return "【通信エラー】Gemini APIサーバーとの通信に失敗しました。サーバーのネットワーク接続やプロキシ設定をご確認ください。"
+
+    # 7. その他の例外
+    return f"【Gemini APIエラー】AI処理中にエラーが発生しました（{error_type}: {error_str}）"
+
+
 class GeminiService:
     def __init__(self):
         # APIキーが空の場合は、環境変数から読み込む
@@ -35,16 +71,26 @@ class GeminiService:
         logger.info(f"Uploading video {video_path} to Gemini (Model: {model_name})...")
         
         # Upload video file to Gemini
-        video_file = self.client.files.upload(file=video_path)
-        logger.info(f"Video uploaded. File name: {video_file.name}. Waiting for processing...")
+        try:
+            video_file = self.client.files.upload(file=video_path)
+            logger.info(f"Video uploaded. File name: {video_file.name}. Waiting for processing...")
+        except Exception as e:
+            detailed_msg = parse_gemini_error(e)
+            logger.error(f"Failed to upload video to Gemini: {detailed_msg}")
+            raise RuntimeError(detailed_msg) from e
         
         # Wait for file processing to complete
         while video_file.state.name == "PROCESSING":
             time.sleep(5)
-            video_file = self.client.files.get(name=video_file.name)
+            try:
+                video_file = self.client.files.get(name=video_file.name)
+            except Exception as e:
+                detailed_msg = parse_gemini_error(e)
+                logger.error(f"Failed during file processing status check: {detailed_msg}")
+                raise RuntimeError(detailed_msg) from e
             
         if video_file.state.name == "FAILED":
-            raise Exception("Gemini video processing failed.")
+            raise RuntimeError("【Gemini動画解析エラー】アップロードされた動画のエンコード解析に失敗しました。動画ファイルが破損していないかご確認ください。")
             
         logger.info("Video processing complete. Starting generation...")
 
@@ -84,7 +130,6 @@ class GeminiService:
                 )
             )
 
-            
             # Delete file from Gemini after analysis to be clean
             try:
                 self.client.files.delete(name=video_file.name)
@@ -96,13 +141,14 @@ class GeminiService:
             return ManualGenerationResult(**result_json)
 
         except Exception as e:
-            logger.error(f"Error calling Gemini API: {e}")
+            detailed_msg = parse_gemini_error(e)
+            logger.error(f"Error calling Gemini API: {detailed_msg}")
             # Ensure cleanup
             try:
                 self.client.files.delete(name=video_file.name)
             except:
                 pass
-            raise e
+            raise RuntimeError(detailed_msg) from e
 
     def refine_manual_content(self, current_content: str, instruction: str, model_name: str = "gemini-3.5-flash") -> str:
         """
@@ -122,7 +168,6 @@ class GeminiService:
             f"【現在のマニュアル本文】:\n{current_content}\n\n"
             f"【ユーザーからの修正指示】:\n{instruction}\n"
         )
-
 
         try:
             response = self.client.models.generate_content(
@@ -145,6 +190,8 @@ class GeminiService:
             return text.strip()
 
         except Exception as e:
-            logger.error(f"Error calling Gemini API for content refinement: {e}")
-            raise e
+            detailed_msg = parse_gemini_error(e)
+            logger.error(f"Error calling Gemini API for content refinement: {detailed_msg}")
+            raise RuntimeError(detailed_msg) from e
+
 
