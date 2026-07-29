@@ -48,26 +48,27 @@ class GeminiService:
             
         logger.info("Video processing complete. Starting generation...")
 
-        # Build prompt
+        # Build prompt (Forcing Japanese language output)
         prompt = (
-            "Analyze the audio and video content of the provided video file. "
-            "Generate a highly professional, detailed step-by-step training/operation manual. "
-            "The output must follow the specified JSON schema.\n\n"
-            "Requirements for the fields:\n"
-            "1. title: A clear, descriptive title for the manual.\n"
-            "2. content: The full body of the manual written in Markdown format. "
-            "Divide the manual into logical sections (e.g., Preparation, Steps, Tips). "
-            "For each key step, describe what is happening in detail. "
-            "You MUST embed images at key steps by using the placeholder format `![image](IMAGE_INDEX)` "
-            "where IMAGE_INDEX corresponds to the index of the keyframe in the `keyframes` list (0-indexed). "
-            "For example, if you list 3 keyframes, use `![image](0)`, `![image](1)`, and `![image](2)` in the Markdown text "
-            "at the exact positions where those images should visually explain the step. Do NOT use other image URLs.\n"
-            "3. keyframes: A list of key moments (timestamp in seconds, and brief description) that visually capture the core steps "
-            "described in the manual, which will be extracted as screenshots.\n"
+            "【言語制約 - 最優先指示】\n"
+            "生成する手順書のタイトル、本文、手順の説明、キーフレームの解説を含むすべての出力テキストは、必ず自然で読みやすい「日本語」で記述・作成してください。"
+            "動画内の音声や字幕が他言語であっても、生成するマニュアルのテキストはすべて日本語で記述する必要があります。\n\n"
+            "【指示内容】\n"
+            "提供された動画ファイルの映像と音声を詳細に解析し、業務・操作トレーニング用のプロフェッショナルなステップバイステップ手順書（Markdown形式）を作成してください。"
+            "出力は指定された JSON スキーマに従ってください。\n\n"
+            "【各フィールドの要求仕様】:\n"
+            "1. title: 手順書の明確で分かりやすい日本語タイトル。\n"
+            "2. content: Markdown形式で記述された手順書本文（全テキスト日本語）。\n"
+            "   - 論理的なセクション（例: 概要・準備物、操作手順、注意点・Tipsなど）に分類してください。\n"
+            "   - 各ステップについて、何を行うべきか具体的な操作方法を日本語で詳細に記述してください。\n"
+            "   - 重要ステップには必ず画像プレースホルダー `![image](IMAGE_INDEX)` を埋め込んでください。"
+            "IMAGE_INDEX は `keyframes` 配列のインデックス（0開始の数値）に対応させます。"
+            "例えば 3 つのキーフレームがある場合、本文の該当するステップの位置に `![image](0)`, `![image](1)`, `![image](2)` を配置してください。その他の外部URLは使用しないでください。\n"
+            "3. keyframes: 手順のキーとなる瞬間（秒単位のタイムスタンプと、その場面の日本語による短い解説文）のリスト。\n"
         )
         
         if user_instruction:
-            prompt += f"\nAdditional User Instructions: {user_instruction}\n"
+            prompt += f"\n【追加のユーザー指示】:\n{user_instruction}\n（※ユーザー指示が含まれる場合も、必ず最終出力テキストはすべて日本語で記述してください。）\n"
 
         target_model = model_name if model_name else "gemini-3.5-flash"
 
@@ -111,15 +112,17 @@ class GeminiService:
         logger.info(f"Refining manual content using Gemini (Model: {target_model})...")
 
         prompt = (
-            "You are a professional technical writer and manual editing expert.\n"
-            "Rewrite and refine the provided 【Current Manual Content (Markdown)】 according to the 【User Instruction】.\n\n"
-            "Strict Requirements:\n"
-            "1. Output ONLY the rewritten Markdown text. Do NOT include greetings, explanations, or markdown code block fences (like ```markdown).\n"
-            "2. Preserve existing image tags (e.g., `![alt](url)`) and important document structures, while applying the requested changes or additions.\n"
-            "3. Correct any typos and improve clarity for professional documentation.\n\n"
-            f"【Current Manual Content (Markdown)】:\n{current_content}\n\n"
-            f"【User Instruction】:\n{instruction}\n"
+            "あなたはプロフェッショナルなテクニカルライターおよびマニュアル編集の専門家です。\n"
+            "提供された【現在のマニュアル本文(Markdown)】を、【ユーザーからの修正指示】に従って正確に再構成・修正してください。\n\n"
+            "【厳格な遵守事項】:\n"
+            "1. すべてのテキストは必ず自然な「日本語」で記述してください。\n"
+            "2. 修正後のMarkdownテキストのみを出力してください。挨拶文、解説文、```markdown などのコードブロック囲みは含めないでください。\n"
+            "3. 本文中に埋め込まれている画像タグ（例: `![alt](url)`）や重要な構造を保持しながら、ユーザー指定の修正・追加を行ってください。\n"
+            "4. 誤字脱字の修正および専門用語の分かりやすい日本語表現への統一を行ってください。\n\n"
+            f"【現在のマニュアル本文】:\n{current_content}\n\n"
+            f"【ユーザーからの修正指示】:\n{instruction}\n"
         )
+
 
         try:
             response = self.client.models.generate_content(
