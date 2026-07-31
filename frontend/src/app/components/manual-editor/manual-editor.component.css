@@ -484,6 +484,21 @@
   gap: 4px;
 }
 
+.timestamp-badge.uploaded-badge {
+  background: rgba(16, 185, 129, 0.85);
+}
+
+.card-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-img-btn {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+}
+
 .badge-icon {
   width: 10px;
   height: 10px;

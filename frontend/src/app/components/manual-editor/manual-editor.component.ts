@@ -34,7 +34,8 @@ import {
   Undo2,
   X,
   Sparkles,
-  Wand2
+  Wand2,
+  Upload
 } from 'lucide-angular';
 
 
@@ -155,8 +156,11 @@ export class ManualEditorComponent implements OnInit {
   EditIcon = Edit2;
   CameraIcon = Camera;
   PlusIcon = Plus;
+  UploadIcon = Upload;
   TrashIcon = Trash2;
   ChevronDownIcon = ChevronDown;
+
+  isUploadingCustomImage = false;
   FileCodeIcon = FileCode;
   PauseIcon = Pause;
   RotateCcwIcon = RotateCcw;
@@ -278,6 +282,12 @@ export class ManualEditorComponent implements OnInit {
     }
   }
 
+  onImageClick(img: ManualImage): void {
+    if (img && img.timestamp !== null && img.timestamp !== undefined) {
+      this.seekTo(img.timestamp);
+    }
+  }
+
   getVideoUrl(): string {
     if (!this.manual || !this.manual.video_path) return '';
     const videoPath = this.manual.video_path;
@@ -366,6 +376,36 @@ export class ManualEditorComponent implements OnInit {
       error: (err) => {
         alert('静止画の切り出しに失敗しました。');
         this.isExtracting = false;
+        console.error(err);
+      }
+    });
+  }
+
+  // Upload arbitrary custom image file
+  triggerCustomImageUpload(fileInput: HTMLInputElement): void {
+    fileInput.click();
+  }
+
+  onCustomImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.isUploadingCustomImage = true;
+
+    this.apiService.uploadCustomImage(this.manualId, file).subscribe({
+      next: (newImage) => {
+        if (!this.manual.images) {
+          this.manual.images = [];
+        }
+        this.manual.images.push(newImage);
+        this.isUploadingCustomImage = false;
+        input.value = '';
+      },
+      error: (err) => {
+        alert('画像のアップロードに失敗しました。');
+        this.isUploadingCustomImage = false;
+        input.value = '';
         console.error(err);
       }
     });

@@ -4,8 +4,9 @@ from typing import List, Optional
 
 # Image schemas
 class ManualImageBase(BaseModel):
-    timestamp: float
+    timestamp: Optional[float] = None
     description: Optional[str] = None
+    image_type: Optional[str] = "extracted"
 
 class ManualImageCreate(ManualImageBase):
     image_path: str

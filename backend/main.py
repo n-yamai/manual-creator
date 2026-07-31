@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 
 from config import settings
-from database import engine, Base, get_db
+from database import engine, Base, get_db, run_migrations
 from models import Manual, ManualImage
 from schemas import (
     ManualResponse, ManualDetailResponse, ManualUpdate, 
@@ -28,8 +28,9 @@ from services.gemini_service import GeminiService
 from services.pdf_service import PDFService
 
 
-# Create database tables
+# Create database tables & run migrations for existing DB compatibility
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 app = FastAPI(title="Manual Creator API")
 
@@ -306,7 +307,8 @@ def extract_frame_custom(
             manual_id=manual.id,
             image_path=rel_image_path,
             timestamp=req.timestamp,
-            description=description
+            description=description,
+            image_type="extracted"
         )
         db.add(db_image)
         db.commit()
@@ -314,6 +316,47 @@ def extract_frame_custom(
         return db_image
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extract frame: {str(e)}")
+
+@app.post("/api/manuals/{manual_id}/upload-image", response_model=ManualImageResponse)
+async def upload_custom_image(
+    manual_id: int,
+    file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Uploads an arbitrary custom image file and attaches it to the manual."""
+    manual = db.query(Manual).filter(Manual.id == manual_id).first()
+    if not manual:
+        raise HTTPException(status_code=404, detail="Manual not found")
+
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".png"
+    if not file_ext:
+        file_ext = ".png"
+
+    unique_id = str(uuid.uuid4())[:8]
+    img_filename = f"manual_{manual_id}_custom_{unique_id}{file_ext}"
+    rel_image_path = f"images/{img_filename}"
+    abs_image_save_path = os.path.join(settings.MEDIA_DIR, "images", img_filename)
+
+    try:
+        with open(abs_image_save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save custom image: {str(e)}")
+
+    img_desc = description or (file.filename if file.filename else "追加画像")
+    
+    db_image = ManualImage(
+        manual_id=manual.id,
+        image_path=rel_image_path,
+        timestamp=None,
+        description=img_desc,
+        image_type="uploaded"
+    )
+    db.add(db_image)
+    db.commit()
+    db.refresh(db_image)
+    return db_image
 
 @app.delete("/api/manuals/{manual_id}/images/{image_id}")
 def delete_manual_image(manual_id: int, image_id: int, db: Session = Depends(get_db)):

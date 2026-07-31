@@ -136,31 +136,54 @@
       </div>
 
 
-      <!-- Extracted Keyframes List -->
+      <!-- Extracted & Uploaded Images List -->
       <div class="card images-card">
         <div class="card-title-bar">
           <div class="bar-title">
             <lucide-icon [name]="ImageIcon" class="bar-icon"></lucide-icon>
-            <span>切り出し静止画 ({{ manual.images?.length || 0 }})</span>
+            <span>使用画像 ({{ manual.images?.length || 0 }})</span>
+          </div>
+          <div class="card-title-actions">
+            <input 
+              type="file" 
+              #customFileInput 
+              accept="image/*" 
+              style="display: none;" 
+              (change)="onCustomImageSelected($event)"
+            >
+            <button 
+              class="btn btn-sm btn-secondary upload-img-btn" 
+              [disabled]="isUploadingCustomImage"
+              (click)="triggerCustomImageUpload(customFileInput)"
+              title="PCから任意の画像ファイルをアップロードして追加します"
+            >
+              <lucide-icon [name]="UploadIcon" class="icon-left"></lucide-icon>
+              {{ isUploadingCustomImage ? 'アップロード中...' : '画像を追加' }}
+            </button>
           </div>
         </div>
-        <p class="section-desc">クリックで動画位置にシーク、「挿入」でテキストに配置できます。</p>
+        <p class="section-desc">クリックで動画位置にシーク（切り出し画像のみ）、「挿入」でテキスト本文に配置できます。</p>
         
         <div *ngIf="!manual.images || manual.images.length === 0" class="no-images-msg">
-          <p>静止画がまだありません。動画の「静止画切り出し」を押して追加してください。</p>
+          <p>画像がまだありません。「画像を追加」から任意画像をアップロードするか、動画の「静止画切り出し」で追加してください。</p>
         </div>
 
         <div class="images-grid" *ngIf="manual.images && manual.images.length > 0">
           <div 
             *ngFor="let img of manual.images; let i = index" 
             class="image-item"
-            (click)="seekTo(img.timestamp)"
+            (click)="onImageClick(img)"
           >
             <div class="image-wrapper">
               <img [src]="getAbsoluteImageUrl(img.image_path)" [alt]="img.description">
-              <span class="timestamp-badge">
+              
+              <!-- Badge: Extracted timestamp or Uploaded badge -->
+              <span class="timestamp-badge" *ngIf="img.timestamp !== null && img.timestamp !== undefined">
                 <lucide-icon [name]="PlayIcon" class="badge-icon"></lucide-icon>
                 {{ img.timestamp | number:'1.1-1' }}s
+              </span>
+              <span class="timestamp-badge uploaded-badge" *ngIf="img.timestamp === null || img.timestamp === undefined">
+                アップロード
               </span>
             </div>
             <div class="image-info">
@@ -178,7 +201,7 @@
                 <button 
                   class="btn-icon btn-edit-img" 
                   (click)="openImageEditor(img, $event)"
-                  title="この静止画を編集（切り抜き・図形挿入）"
+                  title="この画像を編集（切り抜き・図形挿入）"
                 >
                   <lucide-icon [name]="EditIcon" class="action-icon"></lucide-icon>
                   編集
@@ -186,7 +209,7 @@
                 <button 
                   class="btn-icon btn-delete" 
                   (click)="deleteImage(img, $event)"
-                  title="この静止画を削除"
+                  title="この画像を削除"
                 >
                   <lucide-icon [name]="TrashIcon" class="action-icon"></lucide-icon>
                 </button>

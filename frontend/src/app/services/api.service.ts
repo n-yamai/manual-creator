@@ -7,8 +7,9 @@ export interface ManualImage {
   id: number;
   manual_id: number;
   image_path: string;
-  timestamp: number;
+  timestamp: number | null;
   description: string;
+  image_type?: string;
   created_at: string;
 }
 
@@ -94,6 +95,15 @@ export class ApiService {
     });
   }
 
+  uploadCustomImage(manualId: number, file: File, description?: string): Observable<ManualImage> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (description) {
+      formData.append('description', description);
+    }
+    return this.http.post<ManualImage>(`${this.apiUrl}/manuals/${manualId}/upload-image`, formData);
+  }
+
   deleteImage(manualId: number, imageId: number): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}`);
   }
@@ -130,7 +140,8 @@ export class ApiService {
   getMediaUrl(relativePath: string): string {
     // Backend StaticFiles mounts media_dir at /api/media
     // relativePath is stored as "images/filename.png" or "videos/filename.mp4"
-    const cleanPath = relativePath.replace(/^\/?(api\/media\/)?/, '');
+    const normalizedPath = (relativePath || '').replace(/\\/g, '/');
+    const cleanPath = normalizedPath.replace(/^\/?(api\/media\/)?/, '');
     return `${this.baseUrl}/api/media/${cleanPath}`;
   }
 

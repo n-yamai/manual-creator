@@ -22,8 +22,9 @@ class ManualImage(Base):
     id = Column(Integer, primary_key=True, index=True)
     manual_id = Column(Integer, ForeignKey("manuals.id", ondelete="CASCADE"), nullable=False)
     image_path = Column(String, nullable=False)
-    timestamp = Column(Float, nullable=False)  # Timestamp in seconds where the image was extracted
+    timestamp = Column(Float, nullable=True)  # Timestamp in seconds for extracted video frames (None for uploaded images)
     description = Column(String, nullable=True)
+    image_type = Column(String, default="extracted", nullable=True)  # "extracted" or "uploaded"
     created_at = Column(DateTime, default=datetime.utcnow)
 
     manual = relationship("Manual", back_populates="images")
