@@ -5,10 +5,10 @@ import re
 from datetime import datetime
 
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
@@ -47,6 +47,83 @@ app.add_middleware(
 os.makedirs(os.path.join(settings.MEDIA_DIR, "videos"), exist_ok=True)
 os.makedirs(os.path.join(settings.MEDIA_DIR, "images"), exist_ok=True)
 os.makedirs(os.path.join(settings.MEDIA_DIR, "pdfs"), exist_ok=True)
+
+@app.get("/api/media/videos/{filename}")
+def stream_video(filename: str, request: Request):
+    """
+    Serves video files with HTTP Range Requests support (206 Partial Content)
+    enabling smooth timeline seeking in HTML5 video players across all browsers.
+    """
+    video_path = os.path.join(settings.MEDIA_DIR, "videos", filename)
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video file not found")
+
+    file_size = os.path.getsize(video_path)
+    range_header = request.headers.get("range")
+
+    if not range_header:
+        def full_file_iterator():
+            with open(video_path, "rb") as f:
+                while chunk := f.read(1024 * 1024):
+                    yield chunk
+
+        return StreamingResponse(
+            full_file_iterator(),
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+            }
+        )
+
+    try:
+        units, range_str = range_header.split("=")
+        if units.strip() != "bytes":
+            raise ValueError()
+
+        start_str, end_str = range_str.split("-")
+        start = int(start_str) if start_str else 0
+        end = int(end_str) if end_str else file_size - 1
+
+        if start >= file_size or end >= file_size or start > end:
+            raise ValueError()
+
+    except ValueError:
+        return Response(
+            status_code=416,
+            headers={
+                "Content-Range": f"bytes */{file_size}",
+                "Accept-Ranges": "bytes"
+            }
+        )
+
+    chunk_size = (end - start) + 1
+
+    def range_stream_iterator():
+        with open(video_path, "rb") as f:
+            f.seek(start)
+            bytes_left = chunk_size
+            while bytes_left > 0:
+                read_size = min(1024 * 1024, bytes_left)
+                data = f.read(read_size)
+                if not data:
+                    break
+                bytes_left -= len(data)
+                yield data
+
+    headers = {
+        "Content-Range": f"bytes {start}-{end}/{file_size}",
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(chunk_size),
+        "Content-Type": "video/mp4",
+    }
+
+    return StreamingResponse(
+        range_stream_iterator(),
+        status_code=206,
+        headers=headers,
+        media_type="video/mp4"
+    )
 
 # Serve static media files
 app.mount("/api/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")

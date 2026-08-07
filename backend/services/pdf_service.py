@@ -152,6 +152,16 @@ class PDFService:
             }
 
 
+            /* Forced Page Break */
+            .page-break {
+                page-break-before: always !important;
+                break-before: page !important;
+                height: 0;
+                margin: 0;
+                border: none;
+                clear: both;
+            }
+
             /* Tables */
             table {
                 width: 100%;
@@ -259,6 +269,14 @@ class PDFService:
         """
         if embed_base64:
             markdown_content = cls._embed_images_as_base64(markdown_content)
+
+        # Convert custom pagebreak tags (<!-- pagebreak --> or [pagebreak]) to HTML div
+        markdown_content = re.sub(
+            r'<!--\s*pagebreak\s*-->|\[pagebreak\]',
+            '<div class="page-break"></div>',
+            markdown_content,
+            flags=re.IGNORECASE
+        )
 
         # Convert markdown to html (with table and other extensions)
         html_body = markdown.markdown(

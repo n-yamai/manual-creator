@@ -67,6 +67,7 @@ export class ManualEditorComponent implements OnInit {
   
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
   @ViewChild('exportDropdownRef') exportDropdownRef!: ElementRef;
+  @ViewChild('editorTextarea') editorTextarea!: ElementRef<HTMLTextAreaElement>;
 
   toggleExportDropdown(event: Event): void {
     event.stopPropagation();
@@ -159,6 +160,7 @@ export class ManualEditorComponent implements OnInit {
   UploadIcon = Upload;
   TrashIcon = Trash2;
   ChevronDownIcon = ChevronDown;
+  Maximize2Icon = Maximize2;
 
   isUploadingCustomImage = false;
   FileCodeIcon = FileCode;
@@ -166,9 +168,24 @@ export class ManualEditorComponent implements OnInit {
   RotateCcwIcon = RotateCcw;
   RotateCwIcon = RotateCw;
 
+  hoverPreviewImage: ManualImage | null = null;
+  hoverPreviewPos = { x: 0, y: 0 };
+
+  showHoverPreview(img: ManualImage, event: MouseEvent): void {
+    this.hoverPreviewImage = img;
+  }
+
+  hideHoverPreview(): void {
+    this.hoverPreviewImage = null;
+  }
+
   videoDuration = 0;
   videoCurrentTime = 0;
+  seekerValue = 0;
   isPlaying = false;
+  isUserSeeking = false;
+  isSeekingVideo = false;
+  private wasPlayingBeforeSeek = false;
 
   onVideoLoadedMetadata(): void {
     if (this.videoPlayer && this.videoPlayer.nativeElement) {
@@ -177,8 +194,23 @@ export class ManualEditorComponent implements OnInit {
   }
 
   onVideoTimeUpdate(): void {
-    if (this.videoPlayer && this.videoPlayer.nativeElement) {
-      this.videoCurrentTime = this.videoPlayer.nativeElement.currentTime || 0;
+    if (this.videoPlayer && this.videoPlayer.nativeElement && !this.isUserSeeking && !this.isSeekingVideo) {
+      const time = this.videoPlayer.nativeElement.currentTime || 0;
+      this.videoCurrentTime = time;
+      this.seekerValue = time;
+    }
+  }
+
+  onVideoSeeking(): void {
+    this.isSeekingVideo = true;
+  }
+
+  onVideoSeeked(): void {
+    this.isSeekingVideo = false;
+    if (this.videoPlayer && this.videoPlayer.nativeElement && !this.isUserSeeking) {
+      const time = this.videoPlayer.nativeElement.currentTime || 0;
+      this.videoCurrentTime = time;
+      this.seekerValue = time;
     }
   }
 
@@ -194,24 +226,51 @@ export class ManualEditorComponent implements OnInit {
     if (!this.videoPlayer || !this.videoPlayer.nativeElement) return;
     const video = this.videoPlayer.nativeElement;
     if (video.paused) {
-      video.play();
+      video.play().catch(e => console.log('Play failed:', e));
     } else {
       video.pause();
     }
   }
 
-  onSliderSeek(event: Event): void {
+  onSliderSeekStart(): void {
+    this.isUserSeeking = true;
+    if (this.videoPlayer && this.videoPlayer.nativeElement) {
+      this.wasPlayingBeforeSeek = !this.videoPlayer.nativeElement.paused;
+    }
+  }
+
+  onSliderSeekInput(event: Event): void {
+    this.isUserSeeking = true;
     const target = event.target as HTMLInputElement;
     const seconds = parseFloat(target.value);
     if (!isNaN(seconds)) {
-      this.seekTo(seconds);
+      this.seekerValue = seconds;
+      this.videoCurrentTime = seconds;
     }
+  }
+
+  onSliderSeekChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const seconds = parseFloat(target.value);
+    if (!isNaN(seconds) && this.videoPlayer && this.videoPlayer.nativeElement) {
+      this.isSeekingVideo = true;
+      this.videoPlayer.nativeElement.currentTime = seconds;
+      this.videoCurrentTime = seconds;
+      this.seekerValue = seconds;
+
+      if (this.wasPlayingBeforeSeek) {
+        this.videoPlayer.nativeElement.play().catch(e => console.log('Resume failed:', e));
+      }
+    }
+    setTimeout(() => {
+      this.isUserSeeking = false;
+    }, 250);
   }
 
   skipSeconds(seconds: number): void {
     if (!this.videoPlayer || !this.videoPlayer.nativeElement) return;
     const newTime = Math.max(0, Math.min(this.videoDuration, this.videoCurrentTime + seconds));
-    this.seekTo(newTime);
+    this.seekTo(newTime, false);
   }
 
 
@@ -272,10 +331,15 @@ export class ManualEditorComponent implements OnInit {
   }
 
   // Seek video to specific timestamp (seconds) and play
-  seekTo(seconds: number): void {
+  seekTo(seconds: number, autoPlay: boolean = true): void {
     if (this.videoPlayer && this.videoPlayer.nativeElement) {
+      this.isSeekingVideo = true;
       this.videoPlayer.nativeElement.currentTime = seconds;
-      this.videoPlayer.nativeElement.play();
+      this.videoCurrentTime = seconds;
+      this.seekerValue = seconds;
+      if (autoPlay) {
+        this.videoPlayer.nativeElement.play().catch(e => console.log('Auto-play prevented:', e));
+      }
       
       // Scroll to video player for mobile usability
       this.videoPlayer.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -295,8 +359,13 @@ export class ManualEditorComponent implements OnInit {
     return this.apiService.getMediaUrl(`videos/${filename}`);
   }
 
+  imageCacheBuster: number = Date.now();
+
   getAbsoluteImageUrl(relativePath: string): string {
-    return this.apiService.getMediaUrl(relativePath);
+    if (!relativePath) return '';
+    const url = this.apiService.getMediaUrl(relativePath);
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}v=${this.imageCacheBuster}`;
   }
 
   downloadPdf(): void {
@@ -411,12 +480,53 @@ export class ManualEditorComponent implements OnInit {
     });
   }
 
-  // Insert image markdown tag into editor text
+  // Helper method to insert text at current cursor position in Markdown editor textarea
+  insertTextAtCursor(textToInsert: string): void {
+    if (!this.manual) return;
+    const currentContent = this.manual.content || '';
+
+    if (this.editorTextarea && this.editorTextarea.nativeElement) {
+      const textarea = this.editorTextarea.nativeElement;
+      const startPos = textarea.selectionStart ?? currentContent.length;
+      const endPos = textarea.selectionEnd ?? startPos;
+
+      // Save scroll position before insertion
+      const savedScrollTop = textarea.scrollTop;
+      const savedScrollLeft = textarea.scrollLeft;
+
+      const beforeText = currentContent.substring(0, startPos);
+      const afterText = currentContent.substring(endPos);
+
+      this.manual.content = beforeText + textToInsert + afterText;
+
+      // Restore focus & cursor selection without scroll jump
+      setTimeout(() => {
+        textarea.focus({ preventScroll: true });
+        const newCursorPos = startPos + textToInsert.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+        // Restore exact scroll position
+        textarea.scrollTop = savedScrollTop;
+        textarea.scrollLeft = savedScrollLeft;
+      }, 50);
+    } else {
+      // Fallback: append at end
+      this.manual.content = currentContent + textToInsert;
+    }
+  }
+
+  // Insert image markdown tag into editor text at cursor position
   insertImageToEditor(img: ManualImage, event: Event): void {
     event.stopPropagation();
     const imgUrl = this.getAbsoluteImageUrl(img.image_path);
     const markdownTag = `\n\n![${img.description || '静止画'}](${imgUrl})\n\n`;
-    this.manual.content = (this.manual.content || '') + markdownTag;
+    this.insertTextAtCursor(markdownTag);
+  }
+
+  // Insert page break tag into editor text at cursor position
+  insertPageBreak(): void {
+    const pageBreakTag = `\n\n<!-- pagebreak -->\n\n`;
+    this.insertTextAtCursor(pageBreakTag);
   }
 
   // Delete specific extracted image
@@ -452,7 +562,6 @@ export class ManualEditorComponent implements OnInit {
   SquareIcon = Square;
   CircleIcon = Circle;
   ArrowIcon = MoveRight;
-  Maximize2Icon = Maximize2;
   MinimizeIcon = Minimize2;
   UndoIcon = Undo2;
   XIcon = X;
@@ -787,12 +896,22 @@ export class ManualEditorComponent implements OnInit {
           this.isSavingEditedImage = false;
           this.closeImageEditor();
 
-          // Update image in local manual state with cache buster
+          // Instantly refresh cache buster timestamp for immediate thumbnail & preview update
+          this.imageCacheBuster = Date.now();
+
+          // Update image in local manual state
           if (this.manual.images) {
             const idx = this.manual.images.findIndex(i => i.id === updatedImage.id);
             if (idx !== -1) {
               this.manual.images[idx] = updatedImage;
             }
+          }
+
+          // Force instant refresh of image URL in Markdown content if embedded
+          if (this.manual.content) {
+            const filename = updatedImage.image_path.substring(updatedImage.image_path.lastIndexOf('/') + 1);
+            const regex = new RegExp(`(${filename})(\\?v=\\d+)?`, 'g');
+            this.manual.content = this.manual.content.replace(regex, `$1?v=${this.imageCacheBuster}`);
           }
         },
         error: (err) => {

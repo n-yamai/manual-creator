@@ -91,10 +91,11 @@
         <video 
           #videoPlayer 
           [src]="getVideoUrl()" 
-          controls 
           class="video-element"
           (loadedmetadata)="onVideoLoadedMetadata()"
           (timeupdate)="onVideoTimeUpdate()"
+          (seeking)="onVideoSeeking()"
+          (seeked)="onVideoSeeked()"
           (play)="onVideoPlay()"
           (pause)="onVideoPause()"
         ></video>
@@ -108,8 +109,12 @@
               min="0" 
               [max]="videoDuration || 100" 
               step="0.1" 
-              [value]="videoCurrentTime" 
-              (input)="onSliderSeek($event)"
+              [value]="seekerValue" 
+              (pointerdown)="onSliderSeekStart()"
+              (mousedown)="onSliderSeekStart()"
+              (touchstart)="onSliderSeekStart()"
+              (input)="onSliderSeekInput($event)"
+              (change)="onSliderSeekChange($event)"
             >
           </div>
           
@@ -185,6 +190,17 @@
               <span class="timestamp-badge uploaded-badge" *ngIf="img.timestamp === null || img.timestamp === undefined">
                 アップロード
               </span>
+
+              <!-- Hover Preview Trigger Badge (Magnifier Icon) -->
+              <div 
+                class="hover-preview-trigger"
+                (mouseenter)="showHoverPreview(img, $event)"
+                (mouseleave)="hideHoverPreview()"
+                (click)="$event.stopPropagation()"
+                title="ここへマウスオーバーすると拡大プレビューを表示します"
+              >
+                <lucide-icon [name]="Maximize2Icon" class="preview-badge-icon"></lucide-icon>
+              </div>
             </div>
             <div class="image-info">
               <span class="image-index">画像 #{{ i + 1 }}</span>
@@ -230,9 +246,20 @@
             <lucide-icon [name]="CodeIcon" class="bar-icon"></lucide-icon>
             <span>Markdown エディタ</span>
           </div>
+          <div class="card-title-actions">
+            <button 
+              class="btn btn-sm btn-secondary pagebreak-btn" 
+              (click)="insertPageBreak()"
+              title="PDF・印刷時に特定位置で改ページを実行する指定タグを挿入します"
+            >
+              <lucide-icon [name]="FileTextIcon" class="icon-left"></lucide-icon>
+              改ページを挿入
+            </button>
+          </div>
         </div>
         
         <textarea 
+          #editorTextarea
           [(ngModel)]="manual.content" 
           class="markdown-textarea" 
           placeholder="# 手順書の作成&#10;&#10;ここにMarkdown形式で内容を記述してください..."
@@ -482,6 +509,22 @@
         </button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Floating Image Hover Preview Popover (Ultra Large) -->
+<div 
+  *ngIf="hoverPreviewImage" 
+  class="image-hover-popover"
+>
+  <div class="hover-popover-header">
+    <span class="popover-title">🔍 超拡大プレビュー</span>
+    <span class="popover-badge" *ngIf="hoverPreviewImage.timestamp !== null && hoverPreviewImage.timestamp !== undefined">
+      {{ hoverPreviewImage.timestamp | number:'1.1-1' }}s
+    </span>
+  </div>
+  <div class="hover-popover-body">
+    <img [src]="getAbsoluteImageUrl(hoverPreviewImage.image_path)" [alt]="hoverPreviewImage.description" class="popover-img">
   </div>
 </div>
 
