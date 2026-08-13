@@ -224,6 +224,20 @@
   box-shadow: 0 0 0 3px rgba(0, 80, 203, 0.15);
 }
 
+.model-card.disabled {
+  opacity: 0.55;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.model-card.disabled:hover {
+  border-color: #cbd5e1;
+  background-color: #f1f5f9;
+  box-shadow: none;
+}
+
 .hidden-radio {
   display: none;
 }
@@ -271,12 +285,19 @@
   color: #6b21a8;
 }
 
+.badge-unavailable {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
 .model-desc {
   font-size: 0.78rem;
   color: var(--text-muted);
   line-height: 1.4;
   margin: 0;
 }
+
 
 
 /* Dropzone */

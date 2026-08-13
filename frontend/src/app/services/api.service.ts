@@ -23,6 +23,36 @@ export interface Manual {
   images?: ManualImage[];
 }
 
+export interface AiModel {
+  id: string;
+  name: string;
+  description?: string;
+  badge?: string;
+  badgeClass?: string;
+  available?: boolean;
+}
+
+export interface ApiKeyItem {
+  id: string;
+  label: string;
+  masked_key: string;
+  is_active: boolean;
+}
+
+export interface ApiKeysStatus {
+  active_id: string | null;
+  active_label: string | null;
+  keys: ApiKeyItem[];
+  using_fallback: boolean;
+  fallback_masked_key: string | null;
+}
+
+export interface ApiKeyStatus {
+  is_set: boolean;
+  masked_key: string | null;
+  using_fallback: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -39,24 +69,59 @@ export class ApiService {
     return `${this.baseUrl}/api`;
   }
 
-
+  private get defaultOptions() {
+    return { withCredentials: true };
+  }
 
   constructor(private http: HttpClient) {}
 
+  getModels(): Observable<AiModel[]> {
+    return this.http.get<AiModel[]>(`${this.apiUrl}/models`, this.defaultOptions);
+  }
+
+  getApiKeysStatus(): Observable<ApiKeysStatus> {
+    return this.http.get<ApiKeysStatus>(`${this.apiUrl}/settings/api-keys`, this.defaultOptions);
+  }
+
+  addApiKey(label: string, apiKey: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/settings/api-keys`, { label, api_key: apiKey }, this.defaultOptions);
+  }
+
+  setActiveApiKey(id: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/settings/api-keys/active`, { id }, this.defaultOptions);
+  }
+
+  deleteApiKeyItem(id: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/settings/api-keys/${id}`, this.defaultOptions);
+  }
+
+  getApiKeyStatus(): Observable<ApiKeyStatus> {
+    return this.http.get<ApiKeyStatus>(`${this.apiUrl}/settings/api-key`, this.defaultOptions);
+  }
+
+  setApiKey(apiKey: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/settings/api-key`, { api_key: apiKey }, this.defaultOptions);
+  }
+
+  deleteApiKey(): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/settings/api-key`, this.defaultOptions);
+  }
+
+
   getManuals(): Observable<Manual[]> {
-    return this.http.get<Manual[]>(`${this.apiUrl}/manuals`);
+    return this.http.get<Manual[]>(`${this.apiUrl}/manuals`, this.defaultOptions);
   }
 
   getManual(id: number): Observable<Manual> {
-    return this.http.get<Manual>(`${this.apiUrl}/manuals/${id}`);
+    return this.http.get<Manual>(`${this.apiUrl}/manuals/${id}`, this.defaultOptions);
   }
 
   updateManual(id: number, data: { title?: string; content?: string }): Observable<Manual> {
-    return this.http.put<Manual>(`${this.apiUrl}/manuals/${id}`, data);
+    return this.http.put<Manual>(`${this.apiUrl}/manuals/${id}`, data, this.defaultOptions);
   }
 
   deleteManual(id: number): Observable<any> {
-    return this.http.delete<any>(`${this.apiUrl}/manuals/${id}`);
+    return this.http.delete<any>(`${this.apiUrl}/manuals/${id}`, this.defaultOptions);
   }
 
   uploadVideo(file: File, promptInstruction?: string, modelName?: string): Observable<{ status: string; progress?: number; body?: Manual }> {
@@ -70,7 +135,7 @@ export class ApiService {
     }
 
     return this.http.post<Manual>(`${this.apiUrl}/manuals/upload`, formData, {
-
+      ...this.defaultOptions,
       reportProgress: true,
       observe: 'events'
     }).pipe(
@@ -92,7 +157,7 @@ export class ApiService {
     return this.http.post<ManualImage>(`${this.apiUrl}/manuals/${manualId}/extract-frame`, {
       timestamp,
       description
-    });
+    }, this.defaultOptions);
   }
 
   uploadCustomImage(manualId: number, file: File, description?: string): Observable<ManualImage> {
@@ -105,13 +170,13 @@ export class ApiService {
   }
 
   deleteImage(manualId: number, imageId: number): Observable<any> {
-    return this.http.delete<any>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}`);
+    return this.http.delete<any>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}`, this.defaultOptions);
   }
 
   updateImage(manualId: number, imageId: number, blob: Blob): Observable<ManualImage> {
     const formData = new FormData();
     formData.append('file', blob, `edited_image_${imageId}.png`);
-    return this.http.post<ManualImage>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}/update`, formData);
+    return this.http.post<ManualImage>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}/update`, formData, this.defaultOptions);
   }
 
   refineManual(manualId: number, instruction: string, currentContent: string, modelName: string = 'gemini-3.5-flash'): Observable<{ refined_content: string }> {
@@ -119,11 +184,8 @@ export class ApiService {
       instruction,
       current_content: currentContent,
       model_name: modelName
-    });
+    }, this.defaultOptions);
   }
-
-
-
 
   getPdfUrl(id: number): string {
     return `${this.apiUrl}/manuals/${id}/pdf`;
@@ -137,12 +199,13 @@ export class ApiService {
     return `${this.apiUrl}/manuals/${id}/markdown`;
   }
 
+
   getMediaUrl(relativePath: string): string {
-    // Backend StaticFiles mounts media_dir at /api/media
-    // relativePath is stored as "images/filename.png" or "videos/filename.mp4"
     const normalizedPath = (relativePath || '').replace(/\\/g, '/');
     const cleanPath = normalizedPath.replace(/^\/?(api\/media\/)?/, '');
     return `${this.baseUrl}/api/media/${cleanPath}`;
   }
-
 }
+
+
+

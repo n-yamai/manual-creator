@@ -1,7 +1,7 @@
 import time
 import json
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
@@ -55,24 +55,87 @@ def parse_gemini_error(e: Exception) -> str:
     return f"【Gemini APIエラー】AI処理中にエラーが発生しました（{error_type}: {error_str}）"
 
 
-class GeminiService:
-    def __init__(self):
-        # APIキーが空の場合は、環境変数から読み込む
-        api_key = settings.GEMINI_API_KEY
-        if not api_key:
-            logger.warning("GEMINI_API_KEY is not set. Gemini API calls will fail.")
-        self.client = genai.Client(api_key=api_key)
+PREDEFINED_MODELS = [
+    {
+        "id": "gemini-3.5-flash",
+        "name": "Gemini 3.5 Flash",
+        "badge": "推奨 (標準)",
+        "badgeClass": "badge-recommended",
+        "description": "高速かつバランスの取れた標準モデル。画像・音声の高品質なステップ解析を行います。"
+    },
+    {
+        "id": "gemini-3.6-flash",
+        "name": "Gemini 3.6 Flash",
+        "badge": "最新 Flash",
+        "badgeClass": "badge-new",
+        "description": "最新フラグシップ Flash モデル。高度で精度の高い理解能力を備えます。"
+    },
+    {
+        "id": "gemini-3.5-flash-lite",
+        "name": "Gemini 3.5 Flash Lite",
+        "badge": "超高速",
+        "badgeClass": "badge-lite",
+        "description": "処理スピード最優先の軽量モデル。迅速にドラフト作成したい場合に最適です。"
+    },
+    {
+        "id": "gemini-3-pro-preview",
+        "name": "Gemini 3 Pro Preview",
+        "badge": "高精度 Pro",
+        "badgeClass": "badge-pro",
+        "description": "深い推論と複雑な手順解析が可能な最高精度 Pro モデル。"
+    },
+    {
+        "id": "gemini-2.5-pro",
+        "name": "Gemini 2.5 Pro",
+        "badge": "Pro 安定版",
+        "badgeClass": "badge-pro",
+        "description": "安定性に優れた Pro グレードモデル。"
+    }
+]
 
-    def generate_manual_from_video(self, video_path: str, user_instruction: str = None, model_name: str = "gemini-3.5-flash") -> ManualGenerationResult:
+class GeminiService:
+    def get_client(self, api_key: Optional[str] = None) -> genai.Client:
+        """指定されたAPIキー、または設定/環境変数のフォールバックキーを使用して Client インスタンスを生成"""
+        target_key = api_key.strip() if (api_key and api_key.strip()) else settings.GEMINI_API_KEY
+        if not target_key:
+            raise RuntimeError("Gemini APIキーが設定されていません。画面上部の設定モーダルからAPIキーを設定してください。")
+        return genai.Client(api_key=target_key)
+
+    def get_available_models(self, api_key: Optional[str] = None) -> List[Dict[str, Any]]:
+        """ListModels 連携により利用可能なモデルを取得し、厳選モデルリストと突合して available: bool を設定"""
+        fetched_ids = set()
+        try:
+            client = self.get_client(api_key)
+            all_models = client.models.list()
+            for model in all_models:
+                actions = getattr(model, "supported_actions", []) or []
+                if "generateContent" in actions:
+                    raw_name = getattr(model, "name", "")
+                    model_id = raw_name.replace("models/", "") if raw_name.startswith("models/") else raw_name
+                    if model_id:
+                        fetched_ids.add(model_id)
+        except Exception as e:
+            logger.warning(f"ListModels failed: {e}")
+
+        result_models = []
+        for model_def in PREDEFINED_MODELS:
+            item = dict(model_def)
+            item["available"] = item["id"] in fetched_ids
+            result_models.append(item)
+
+        return result_models
+
+    def generate_manual_from_video(self, video_path: str, user_instruction: str = None, model_name: str = "gemini-3.5-flash", api_key: Optional[str] = None) -> ManualGenerationResult:
         """
         Uploads a video to Gemini API, analyzes it, and generates a structured manual
-        with Markdown content and recommended keyframe timestamps using the specified model.
+        with Markdown content and recommended keyframe timestamps using the specified model and user API key.
         """
         logger.info(f"Uploading video {video_path} to Gemini (Model: {model_name})...")
-        
+        client = self.get_client(api_key)
+
         # Upload video file to Gemini
         try:
-            video_file = self.client.files.upload(file=video_path)
+            video_file = client.files.upload(file=video_path)
             logger.info(f"Video uploaded. File name: {video_file.name}. Waiting for processing...")
         except Exception as e:
             detailed_msg = parse_gemini_error(e)
@@ -83,7 +146,7 @@ class GeminiService:
         while video_file.state.name == "PROCESSING":
             time.sleep(5)
             try:
-                video_file = self.client.files.get(name=video_file.name)
+                video_file = client.files.get(name=video_file.name)
             except Exception as e:
                 detailed_msg = parse_gemini_error(e)
                 logger.error(f"Failed during file processing status check: {detailed_msg}")
@@ -120,7 +183,7 @@ class GeminiService:
 
         try:
             # Request specified Gemini Model
-            response = self.client.models.generate_content(
+            response = client.models.generate_content(
                 model=target_model,
                 contents=[video_file, prompt],
                 config=types.GenerateContentConfig(
@@ -132,7 +195,7 @@ class GeminiService:
 
             # Delete file from Gemini after analysis to be clean
             try:
-                self.client.files.delete(name=video_file.name)
+                client.files.delete(name=video_file.name)
             except Exception as e:
                 logger.warning(f"Failed to delete Gemini temp file: {e}")
 
@@ -145,17 +208,18 @@ class GeminiService:
             logger.error(f"Error calling Gemini API: {detailed_msg}")
             # Ensure cleanup
             try:
-                self.client.files.delete(name=video_file.name)
+                client.files.delete(name=video_file.name)
             except:
                 pass
             raise RuntimeError(detailed_msg) from e
 
-    def refine_manual_content(self, current_content: str, instruction: str, model_name: str = "gemini-3.5-flash") -> str:
+    def refine_manual_content(self, current_content: str, instruction: str, model_name: str = "gemini-3.5-flash", api_key: Optional[str] = None) -> str:
         """
-        Refines and rewrites the current manual Markdown content based on user prompt instructions.
+        Refines and rewrites the current manual Markdown content based on user prompt instructions using user API key.
         """
         target_model = model_name if model_name else "gemini-3.5-flash"
         logger.info(f"Refining manual content using Gemini (Model: {target_model})...")
+        client = self.get_client(api_key)
 
         prompt = (
             "あなたはプロフェッショナルなテクニカルライターおよびマニュアル編集の専門家です。\n"
@@ -170,7 +234,7 @@ class GeminiService:
         )
 
         try:
-            response = self.client.models.generate_content(
+            response = client.models.generate_content(
                 model=target_model,
                 contents=[prompt],
                 config=types.GenerateContentConfig(
@@ -193,5 +257,6 @@ class GeminiService:
             detailed_msg = parse_gemini_error(e)
             logger.error(f"Error calling Gemini API for content refinement: {detailed_msg}")
             raise RuntimeError(detailed_msg) from e
+
 
 

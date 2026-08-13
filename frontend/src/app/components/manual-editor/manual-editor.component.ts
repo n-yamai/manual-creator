@@ -2,7 +2,8 @@ import { Component, OnInit, ViewChild, ElementRef, HostListener } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { ApiService, Manual, ManualImage } from '../../services/api.service';
+import { ApiKeyModalComponent } from '../api-key-modal/api-key-modal.component';
+import { ApiService, Manual, ManualImage, AiModel } from '../../services/api.service';
 import { MarkdownModule } from 'ngx-markdown';
 import { 
   LucideAngularModule, 
@@ -35,18 +36,15 @@ import {
   X,
   Sparkles,
   Wand2,
-  Upload
+  Upload,
+  Key
 } from 'lucide-angular';
-
-
-
-
 
 
 @Component({
   selector: 'app-manual-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, MarkdownModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterModule, MarkdownModule, LucideAngularModule, ApiKeyModalComponent],
   templateUrl: './manual-editor.component.html',
   styleUrls: ['./manual-editor.component.css']
 })
@@ -61,6 +59,24 @@ export class ManualEditorComponent implements OnInit {
   
   // Export dropdown state
   isExportDropdownOpen = false;
+  isApiKeyModalOpen = false;
+
+  // Panel visibility toggle states
+  showAiRefinePanel = true;
+  showPreviewPanel = true;
+
+  toggleAiRefinePanel(): void {
+    this.showAiRefinePanel = !this.showAiRefinePanel;
+  }
+
+  togglePreviewPanel(): void {
+    this.showPreviewPanel = !this.showPreviewPanel;
+  }
+
+  // Model selection state
+  aiModels: AiModel[] = [];
+  selectedRefineModel = 'gemini-3.5-flash';
+  isLoadingModels = false;
 
   // Tab control (useful on mobile/tablet)
   activeTab: 'edit' | 'preview' = 'edit';
@@ -80,7 +96,6 @@ export class ManualEditorComponent implements OnInit {
       this.isExportDropdownOpen = false;
     }
   }
-
 
   // AI Refine properties
   refineInstruction = '';
@@ -115,7 +130,7 @@ export class ManualEditorComponent implements OnInit {
     this.refineError = '';
     this.refineSuccessMessage = '';
 
-    this.apiService.refineManual(this.manualId, this.refineInstruction, this.manual.content).subscribe({
+    this.apiService.refineManual(this.manualId, this.refineInstruction, this.manual.content, this.selectedRefineModel).subscribe({
       next: (res) => {
         this.isRefining = false;
         if (res && res.refined_content) {
@@ -136,11 +151,39 @@ export class ManualEditorComponent implements OnInit {
         }
         console.error(err);
       }
-
     });
   }
 
-  // Icons
+  loadModels(): void {
+    this.isLoadingModels = true;
+    this.apiService.getModels().subscribe({
+      next: (models) => {
+        this.isLoadingModels = false;
+        if (models && models.length > 0) {
+          this.aiModels = models;
+          const currentObj = this.aiModels.find(m => m.id === this.selectedRefineModel);
+          if (!currentObj || currentObj.available === false) {
+            const firstAvailable = this.aiModels.find(m => m.available !== false);
+            if (firstAvailable) {
+              this.selectedRefineModel = firstAvailable.id;
+            }
+          }
+        }
+      },
+      error: (err) => {
+        this.isLoadingModels = false;
+        console.error('Failed to load models:', err);
+      }
+    });
+  }
+
+
+
+
+
+
+
+  KeyIcon = Key;
   ArrowLeftIcon = ArrowLeft;
   SaveIcon = Save;
   DownloadIcon = Download;
@@ -178,6 +221,7 @@ export class ManualEditorComponent implements OnInit {
   hideHoverPreview(): void {
     this.hoverPreviewImage = null;
   }
+
 
   videoDuration = 0;
   videoCurrentTime = 0;
@@ -273,8 +317,7 @@ export class ManualEditorComponent implements OnInit {
     this.seekTo(newTime, false);
   }
 
-
-
+  activeKeyLabel: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -282,15 +325,32 @@ export class ManualEditorComponent implements OnInit {
     private apiService: ApiService
   ) {}
 
+
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('id');
     if (idParam) {
       this.manualId = parseInt(idParam, 10);
       this.loadManual();
+      this.loadModels();
+      this.loadKeyStatus();
     } else {
       this.error = '無効な手順書IDです。';
       this.loading = false;
     }
+  }
+
+  loadKeyStatus(): void {
+    this.apiService.getApiKeysStatus().subscribe({
+      next: (res) => {
+        this.activeKeyLabel = res.active_label || (res.keys && res.keys.length > 0 ? res.keys[0].label : null);
+      },
+      error: () => {}
+    });
+  }
+
+  onKeyStatusChanged(): void {
+    this.loadModels();
+    this.loadKeyStatus();
   }
 
   loadManual(): void {
@@ -298,6 +358,7 @@ export class ManualEditorComponent implements OnInit {
     this.apiService.getManual(this.manualId).subscribe({
       next: (data) => {
         this.manual = data;
+
         this.loading = false;
       },
       error: (err) => {

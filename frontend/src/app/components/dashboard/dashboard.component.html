@@ -62,11 +62,25 @@
         >
       </div>
 
-      <div class="user-profile">
-        <div class="avatar">JD</div>
-        <span class="user-name">ユーザー</span>
+      <div class="header-right-actions" style="display: flex; align-items: center; gap: 1rem;">
+        <button class="btn btn-secondary key-settings-btn" (click)="isApiKeyModalOpen = true" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer;">
+          <lucide-icon [name]="KeyIcon"></lucide-icon>
+          <span>APIキー: {{ activeKeyLabel ? activeKeyLabel : '未設定' }}</span>
+        </button>
+        <div class="user-profile">
+          <div class="avatar">JD</div>
+          <span class="user-name">ユーザー</span>
+        </div>
       </div>
     </header>
+
+    <app-api-key-modal 
+      [isOpen]="isApiKeyModalOpen" 
+      (close)="isApiKeyModalOpen = false"
+      (statusChanged)="loadKeyStatus()"
+    ></app-api-key-modal>
+
+
 
     <!-- Dashboard Content -->
     <div class="content-body">

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { ApiService, Manual } from '../../services/api.service';
+import { ApiKeyModalComponent } from '../api-key-modal/api-key-modal.component';
 import { 
   LucideAngularModule, 
   ArrowLeft, 
@@ -13,13 +14,14 @@ import {
   CheckCircle2,
   LayoutDashboard,
   Plus,
-  FileText
+  FileText,
+  Key
 } from 'lucide-angular';
 
 @Component({
   selector: 'app-manual-creator',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterModule, LucideAngularModule, ApiKeyModalComponent],
   templateUrl: './manual-creator.component.html',
   styleUrls: ['./manual-creator.component.css']
 })
@@ -32,42 +34,49 @@ export class ManualCreatorComponent implements OnInit {
   isGenerating = false;
   errorMessage = '';
   recentManuals: Manual[] = [];
+  isApiKeyModalOpen = false;
+  isLoadingModels = false;
 
-  aiModels = [
+  aiModels: any[] = [
     {
       id: 'gemini-3.5-flash',
       name: 'Gemini 3.5 Flash',
       badge: '推奨 (標準)',
       badgeClass: 'badge-recommended',
-      description: '高速かつバランスの取れた標準モデル。画像・音声の高品質なステップ解析を行います。'
+      description: '高速かつバランスの取れた標準モデル。画像・音声の高品質なステップ解析を行います。',
+      available: true
     },
     {
       id: 'gemini-3.6-flash',
       name: 'Gemini 3.6 Flash',
       badge: '最新 Flash',
       badgeClass: 'badge-new',
-      description: '最新フラグシップ Flash モデル。高度で精度の高い理解能力を備えます。'
+      description: '最新フラグシップ Flash モデル。高度で精度の高い理解能力を備えます。',
+      available: true
     },
     {
       id: 'gemini-3.5-flash-lite',
       name: 'Gemini 3.5 Flash Lite',
       badge: '超高速',
       badgeClass: 'badge-lite',
-      description: '処理スピード最優先の軽量モデル。迅速にドラフト作成したい場合に最適です。'
+      description: '処理スピード最優先の軽量モデル。迅速にドラフト作成したい場合に最適です。',
+      available: true
     },
     {
       id: 'gemini-3-pro-preview',
       name: 'Gemini 3 Pro Preview',
       badge: '高精度 Pro',
       badgeClass: 'badge-pro',
-      description: '深い推論と複雑な手順解析が可能な最高精度 Pro モデル。'
+      description: '深い推論と複雑な手順解析が可能な最高精度 Pro モデル。',
+      available: true
     },
     {
       id: 'gemini-2.5-pro',
       name: 'Gemini 2.5 Pro',
       badge: 'Pro 安定版',
       badgeClass: 'badge-pro',
-      description: '安定性に優れた Pro グレードモデル。'
+      description: '安定性に優れた Pro グレードモデル。',
+      available: true
     }
   ];
 
@@ -81,6 +90,8 @@ export class ManualCreatorComponent implements OnInit {
   DashboardIcon = LayoutDashboard;
   PlusIcon = Plus;
   FileTextIcon = FileText;
+  KeyIcon = Key;
+  activeKeyLabel: string | null = null;
 
   constructor(private apiService: ApiService, private router: Router) {}
 
@@ -89,7 +100,52 @@ export class ManualCreatorComponent implements OnInit {
       next: (data) => this.recentManuals = data.slice(0, 5),
       error: (err) => console.error(err)
     });
+    this.loadModels();
+    this.loadKeyStatus();
   }
+
+  loadKeyStatus(): void {
+    this.apiService.getApiKeysStatus().subscribe({
+      next: (res) => {
+        this.activeKeyLabel = res.active_label || (res.keys && res.keys.length > 0 ? res.keys[0].label : null);
+      },
+      error: () => {}
+    });
+  }
+
+  onKeyStatusChanged(): void {
+    this.loadModels();
+    this.loadKeyStatus();
+  }
+
+  loadModels(): void {
+    this.isLoadingModels = true;
+    this.apiService.getModels().subscribe({
+      next: (models) => {
+        this.isLoadingModels = false;
+        if (models && models.length > 0) {
+          this.aiModels = models;
+          const currentObj = this.aiModels.find(m => m.id === this.selectedModel);
+          if (!currentObj || currentObj.available === false) {
+            const firstAvailable = this.aiModels.find(m => m.available !== false);
+            if (firstAvailable) {
+              this.selectedModel = firstAvailable.id;
+            }
+          }
+        }
+      },
+      error: (err) => {
+        this.isLoadingModels = false;
+        console.error('Failed to load models:', err);
+      }
+    });
+  }
+
+  selectModel(modelId: string, available?: boolean): void {
+    if (available === false) return;
+    this.selectedModel = modelId;
+  }
+
 
 
   onFileSelected(event: any): void {

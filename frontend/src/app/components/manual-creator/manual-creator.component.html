@@ -50,7 +50,20 @@
         </button>
         <h2 class="header-title">マニュアル新規作成</h2>
       </div>
+      <div class="header-right">
+        <button class="btn btn-secondary key-settings-btn" (click)="isApiKeyModalOpen = true" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer;">
+          <lucide-icon [name]="KeyIcon"></lucide-icon>
+          <span>APIキー: {{ activeKeyLabel ? activeKeyLabel : '未設定' }}</span>
+        </button>
+      </div>
     </header>
+
+    <app-api-key-modal 
+      [isOpen]="isApiKeyModalOpen" 
+      (close)="isApiKeyModalOpen = false"
+      (statusChanged)="onKeyStatusChanged()"
+    ></app-api-key-modal>
+
 
     <!-- Form Content Area -->
     <div class="creator-container">
@@ -131,22 +144,31 @@
               *ngFor="let model of aiModels" 
               class="model-card" 
               [class.selected]="selectedModel === model.id"
+              [class.disabled]="model.available === false"
+              (click)="selectModel(model.id, model.available)"
             >
               <input 
                 type="radio" 
                 name="aiModel" 
                 [value]="model.id" 
                 [(ngModel)]="selectedModel"
+                [disabled]="model.available === false"
                 class="hidden-radio"
               >
               <div class="model-card-header">
                 <span class="model-name">{{ model.name }}</span>
-                <span class="model-badge" [ngClass]="model.badgeClass">{{ model.badge }}</span>
+                <span 
+                  class="model-badge" 
+                  [ngClass]="model.available === false ? 'badge-unavailable' : model.badgeClass"
+                >
+                  {{ model.available === false ? '利用不可' : model.badge }}
+                </span>
               </div>
               <p class="model-desc">{{ model.description }}</p>
             </label>
           </div>
         </div>
+
 
         <!-- Section 3: AI Generation Prompt -->
         <div class="card form-card">

@@ -17,6 +17,12 @@
     </div>
 
     <div class="header-actions">
+      <!-- API Key Modal Button -->
+      <button class="btn btn-secondary key-settings-btn" (click)="isApiKeyModalOpen = true" title="APIキー設定">
+        <lucide-icon [name]="KeyIcon" class="icon-left"></lucide-icon>
+        APIキー: {{ activeKeyLabel ? activeKeyLabel : '未設定' }}
+      </button>
+
       <!-- Export Dropdown -->
       <div class="export-dropdown group" [class.is-open]="isExportDropdownOpen" #exportDropdownRef>
         <button class="btn btn-secondary dropdown-btn" (click)="toggleExportDropdown($event)">
@@ -41,7 +47,6 @@
         </div>
       </div>
 
-
       <!-- Save Button -->
       <button 
         class="btn btn-primary save-btn" 
@@ -53,6 +58,13 @@
       </button>
     </div>
   </header>
+
+  <app-api-key-modal 
+    [isOpen]="isApiKeyModalOpen" 
+    (close)="isApiKeyModalOpen = false"
+    (statusChanged)="onKeyStatusChanged()"
+  ></app-api-key-modal>
+
 
   <!-- Mobile Tab Switches -->
   <div class="mobile-tabs">
@@ -228,6 +240,7 @@
                   title="この画像を削除"
                 >
                   <lucide-icon [name]="TrashIcon" class="action-icon"></lucide-icon>
+                  削除
                 </button>
               </div>
             </div>
@@ -255,7 +268,18 @@
               <lucide-icon [name]="FileTextIcon" class="icon-left"></lucide-icon>
               改ページを挿入
             </button>
+
+            <button class="btn btn-sm view-toggle-btn" [class.active]="showAiRefinePanel" (click)="toggleAiRefinePanel()" title="AI補正パネルの表示/非表示を切り替え">
+              <lucide-icon [name]="WandIcon" class="icon-left"></lucide-icon>
+              <span>AI補正 {{ showAiRefinePanel ? '非表示' : '表示' }}</span>
+            </button>
+
+            <button class="btn btn-sm view-toggle-btn" [class.active]="showPreviewPanel" (click)="togglePreviewPanel()" title="プレビュー画面の表示/非表示を切り替え">
+              <lucide-icon [name]="EyeIcon" class="icon-left"></lucide-icon>
+              <span>プレビュー {{ showPreviewPanel ? '非表示' : '表示' }}</span>
+            </button>
           </div>
+
         </div>
         
         <textarea 
@@ -267,11 +291,31 @@
       </div>
 
       <!-- AI Refine Panel -->
-      <div class="card ai-refine-card">
+      <div class="card ai-refine-card" *ngIf="showAiRefinePanel">
         <div class="card-title-bar">
           <div class="bar-title">
             <lucide-icon [name]="WandIcon" class="bar-icon ai-purple-icon"></lucide-icon>
             <span>✨ AIアシスタントによる手順書補正・プロンプト指示</span>
+          </div>
+
+          <div class="model-select-row">
+            <label class="model-select-label">
+              <lucide-icon [name]="SparklesIcon" class="model-label-icon"></lucide-icon>
+              <span>使用AIモデル:</span>
+            </label>
+            <select 
+              [(ngModel)]="selectedRefineModel" 
+              class="model-select-dropdown" 
+              [disabled]="isRefining || isLoadingModels"
+            >
+              <option 
+                *ngFor="let model of aiModels" 
+                [value]="model.id" 
+                [disabled]="model.available === false"
+              >
+                {{ model.name }} {{ model.available === false ? '(利用不可)' : (model.badge ? '(' + model.badge + ')' : '') }}
+              </option>
+            </select>
           </div>
         </div>
 
@@ -323,7 +367,7 @@
 
 
     <!-- Right Column: Document Live Preview Paper -->
-    <section class="workspace-column preview-column" [class.mobile-hidden]="activeTab !== 'preview'">
+    <section class="workspace-column preview-column" *ngIf="showPreviewPanel" [class.mobile-hidden]="activeTab !== 'preview'">
       <div class="card preview-card">
         <div class="card-title-bar">
           <div class="bar-title">

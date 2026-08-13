@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { ApiService, Manual } from '../../services/api.service';
+import { ApiKeyModalComponent } from '../api-key-modal/api-key-modal.component';
 import { 
   LucideAngularModule, 
   Plus, 
@@ -15,13 +16,14 @@ import {
   LayoutDashboard,
   Search,
   Sparkles,
-  BookOpen
+  BookOpen,
+  Key
 } from 'lucide-angular';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, LucideAngularModule],
+  imports: [CommonModule, RouterModule, LucideAngularModule, ApiKeyModalComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -32,8 +34,9 @@ export class DashboardComponent implements OnInit {
   searchQuery = '';
   loading = true;
   error = '';
+  isApiKeyModalOpen = false;
+  activeKeyLabel: string | null = null;
 
-  
   // Icons
   PlusIcon = Plus;
   FileTextIcon = FileText;
@@ -47,14 +50,27 @@ export class DashboardComponent implements OnInit {
   SearchIcon = Search;
   SparklesIcon = Sparkles;
   BookOpenIcon = BookOpen;
+  KeyIcon = Key;
+
 
   constructor(private apiService: ApiService, private router: Router) {}
 
   ngOnInit(): void {
     this.loadManuals();
+    this.loadKeyStatus();
+  }
+
+  loadKeyStatus(): void {
+    this.apiService.getApiKeysStatus().subscribe({
+      next: (res) => {
+        this.activeKeyLabel = res.active_label || (res.keys && res.keys.length > 0 ? res.keys[0].label : null);
+      },
+      error: () => {}
+    });
   }
 
   loadManuals(): void {
+
     this.loading = true;
     this.apiService.getManuals().subscribe({
       next: (data) => {

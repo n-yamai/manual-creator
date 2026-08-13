@@ -67,3 +67,41 @@ class ManualRefineResponse(BaseModel):
     refined_content: str
 
 
+# Settings & Model schemas
+class ApiKeySetRequest(BaseModel):
+    api_key: str
+
+class ApiKeyStatusResponse(BaseModel):
+    is_set: bool
+    masked_key: Optional[str] = None
+    using_fallback: bool = False
+
+class ApiKeyAddRequest(BaseModel):
+    label: str
+    api_key: str
+
+class ApiKeySelectRequest(BaseModel):
+    id: str
+
+class ApiKeyItemResponse(BaseModel):
+    id: str
+    label: str
+    masked_key: str
+    is_active: bool
+
+class ApiKeysStatusResponse(BaseModel):
+    active_id: Optional[str] = None
+    active_label: Optional[str] = None
+    keys: List[ApiKeyItemResponse] = []
+    using_fallback: bool = False
+    fallback_masked_key: Optional[str] = None
+
+class AiModelResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    badge: Optional[str] = None
+    badgeClass: Optional[str] = None
+    available: bool = True
+
+

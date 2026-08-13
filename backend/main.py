@@ -19,13 +19,18 @@ from models import Manual, ManualImage
 from schemas import (
     ManualResponse, ManualDetailResponse, ManualUpdate, 
     ManualCreate, ManualImageResponse, ExtractFrameRequest,
-    ManualRefineRequest, ManualRefineResponse
+    ManualRefineRequest, ManualRefineResponse,
+    ApiKeySetRequest, ApiKeyStatusResponse, AiModelResponse,
+    ApiKeyAddRequest, ApiKeySelectRequest, ApiKeyItemResponse, ApiKeysStatusResponse
 )
+
 
 
 from services.video_service import VideoService
 from services.gemini_service import GeminiService
 from services.pdf_service import PDFService
+from services.key_service import KeyService
+
 
 
 # Create database tables & run migrations for existing DB compatibility
@@ -130,7 +135,183 @@ app.mount("/api/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
 
 gemini_service = GeminiService()
 
+COOKIE_KEY_NAME = "gemini_user_api_keys"
+
+def get_storage_data_from_cookie(request: Request) -> dict:
+    """HttpOnly Cookieから暗号化データを復号して取得"""
+    encrypted_token = request.cookies.get(COOKIE_KEY_NAME)
+    if not encrypted_token:
+        # 旧形式の単一キーCookieの互換チェック
+        legacy_token = request.cookies.get("gemini_user_api_key")
+        if legacy_token:
+            encrypted_token = legacy_token
+    
+    if encrypted_token:
+        data = KeyService.decrypt_data(encrypted_token)
+        if data and isinstance(data, dict):
+            return data
+    return {"active_id": None, "keys": []}
+
+def save_storage_data_to_cookie(response: Response, storage_data: dict) -> str:
+    """辞書データを暗号化して HttpOnly Cookie に保存"""
+    encrypted_token = KeyService.encrypt_data(storage_data)
+    response.set_cookie(
+        key=COOKIE_KEY_NAME,
+        value=encrypted_token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 90
+    )
+    return encrypted_token
+
+def get_current_api_key(request: Request) -> Optional[str]:
+    """現在アクティブなAPIキーの文字列を取得"""
+    storage = get_storage_data_from_cookie(request)
+    active_id = storage.get("active_id")
+    keys = storage.get("keys", [])
+
+    if active_id and keys:
+        for k in keys:
+            if k.get("id") == active_id:
+                return k.get("api_key")
+    
+    # active_id が未指定でキーが存在する場合は先頭を使用
+    if keys:
+        return keys[0].get("api_key")
+
+    return None
+
+@app.get("/api/settings/api-keys", response_model=ApiKeysStatusResponse)
+def get_api_keys_status(request: Request):
+    """登録済みAPIキーの一覧およびアクティブキー情報を取得"""
+    storage = get_storage_data_from_cookie(request)
+    active_id = storage.get("active_id")
+    keys_data = storage.get("keys", [])
+
+    items: List[ApiKeyItemResponse] = []
+    active_label = None
+
+    for k in keys_data:
+        kid = k.get("id", "")
+        label = k.get("label", "登録キー")
+        raw_key = k.get("api_key", "")
+        is_active = (kid == active_id) if active_id else False
+
+        if is_active:
+            active_label = label
+
+        items.append(ApiKeyItemResponse(
+            id=kid,
+            label=label,
+            masked_key=KeyService.mask_api_key(raw_key),
+            is_active=is_active
+        ))
+
+    # もし active_id がなく、キーが存在する場合は先頭をアクティブ扱いにする
+    if items and not any(i.is_active for i in items):
+        items[0].is_active = True
+        active_id = items[0].id
+        active_label = items[0].label
+
+    fallback_key = settings.GEMINI_API_KEY
+    using_fallback = len(items) == 0 and bool(fallback_key and fallback_key.strip())
+    fallback_masked = KeyService.mask_api_key(fallback_key) if fallback_key else None
+
+    return ApiKeysStatusResponse(
+        active_id=active_id,
+        active_label=active_label,
+        keys=items,
+        using_fallback=using_fallback,
+        fallback_masked_key=fallback_masked
+    )
+
+@app.post("/api/settings/api-keys")
+def add_api_key(req: ApiKeyAddRequest, request: Request, response: Response):
+    """新しいAPIキーの接続テストを行い、ラベル付きで追加＆アクティブに設定"""
+    clean_key = req.api_key.strip()
+    clean_label = req.label.strip() if req.label and req.label.strip() else "APIキー"
+
+    if not clean_key:
+        raise HTTPException(status_code=400, detail="APIキーを入力してください。")
+
+    # 1. 接続テスト
+    try:
+        gemini_service.get_available_models(api_key=clean_key)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"APIキーの接続テストに失敗しました: {str(e)}")
+
+    # 2. 既存ストレージの読み込み
+    storage = get_storage_data_from_cookie(request)
+    keys = storage.get("keys", [])
+
+    new_id = f"key_{uuid.uuid4().hex[:8]}"
+    new_item = {
+        "id": new_id,
+        "label": clean_label,
+        "api_key": clean_key
+    }
+    keys.append(new_item)
+    storage["keys"] = keys
+    storage["active_id"] = new_id  # 新規追加したキーを自動的にアクティブ化
+
+    save_storage_data_to_cookie(response, storage)
+    return {"message": f"APIキー「{clean_label}」を追加し、有効化しました。", "id": new_id}
+
+@app.put("/api/settings/api-keys/active")
+def select_active_api_key(req: ApiKeySelectRequest, request: Request, response: Response):
+    """指定されたIDのAPIキーをアクティブに切り替え"""
+    storage = get_storage_data_from_cookie(request)
+    keys = storage.get("keys", [])
+
+    target_item = next((k for k in keys if k.get("id") == req.id), None)
+    if not target_item:
+        raise HTTPException(status_code=404, detail="指定されたAPIキーが見つかりません。")
+
+    storage["active_id"] = req.id
+    save_storage_data_to_cookie(response, storage)
+    return {"message": f"使用するAPIキーを「{target_item.get('label')}」に切り替えました。"}
+
+@app.delete("/api/settings/api-keys/{key_id}")
+def delete_api_key_item(key_id: str, request: Request, response: Response):
+    """指定されたIDのAPIキーを削除"""
+    storage = get_storage_data_from_cookie(request)
+    keys = storage.get("keys", [])
+
+    filtered_keys = [k for k in keys if k.get("id") != key_id]
+    if len(filtered_keys) == len(keys):
+        raise HTTPException(status_code=404, detail="指定されたAPIキーが見つかりません。")
+
+    storage["keys"] = filtered_keys
+
+    # もし削除したキーがアクティブだった場合、残っている先頭のキーをアクティブ化
+    if storage.get("active_id") == key_id:
+        if filtered_keys:
+            storage["active_id"] = filtered_keys[0].get("id")
+        else:
+            storage["active_id"] = None
+
+    save_storage_data_to_cookie(response, storage)
+    return {"message": "APIキーを削除しました。"}
+
+# 互換性用単一キー用エンドポイント
+@app.get("/api/settings/api-key", response_model=ApiKeyStatusResponse)
+def get_api_key_status(request: Request):
+    user_key = get_current_api_key(request)
+    if user_key:
+        return ApiKeyStatusResponse(is_set=True, masked_key=KeyService.mask_api_key(user_key), using_fallback=False)
+    fallback_key = settings.GEMINI_API_KEY
+    if fallback_key and fallback_key.strip():
+        return ApiKeyStatusResponse(is_set=False, masked_key=KeyService.mask_api_key(fallback_key), using_fallback=True)
+    return ApiKeyStatusResponse(is_set=False, masked_key=None, using_fallback=False)
+
+@app.get("/api/models", response_model=List[AiModelResponse])
+def get_available_models(request: Request):
+    """厳選モデルリストと Gemini ListModels 取得結果を突合して利用可能一覧を返却"""
+    user_key = get_current_api_key(request)
+    return gemini_service.get_available_models(api_key=user_key)
+
 @app.get("/api/manuals", response_model=List[ManualResponse])
+
 def list_manuals(db: Session = Depends(get_db)):
     """Returns a list of all manuals."""
     return db.query(Manual).order_by(Manual.created_at.desc()).all()
@@ -197,6 +378,7 @@ def delete_manual(manual_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/manuals/upload", response_model=ManualDetailResponse)
 async def upload_and_generate_manual(
+    request: Request,
     file: UploadFile = File(...),
     prompt_instruction: Optional[str] = Form(None),
     model_name: Optional[str] = Form("gemini-3.5-flash"),
@@ -206,6 +388,8 @@ async def upload_and_generate_manual(
     Uploads a video, calls Gemini API to extract manual content, 
     cuts recommended frames, and saves everything.
     """
+    user_api_key = get_current_api_key(request)
+
     # 1. Save video file to disk
     file_ext = os.path.splitext(file.filename)[1]
     unique_id = str(uuid.uuid4())
@@ -224,7 +408,8 @@ async def upload_and_generate_manual(
         gen_result = gemini_service.generate_manual_from_video(
             video_path=video_save_path,
             user_instruction=prompt_instruction,
-            model_name=selected_model
+            model_name=selected_model,
+            api_key=user_api_key
         )
 
     except Exception as e:
@@ -232,6 +417,7 @@ async def upload_and_generate_manual(
         if os.path.exists(video_save_path):
             os.remove(video_save_path)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
     # 3. Create Manual in Database
@@ -491,11 +677,14 @@ async def update_manual_image(
 def refine_manual(
     manual_id: int, 
     req: ManualRefineRequest, 
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Uses Gemini API to refine and rewrite manual markdown content according to user prompt instructions.
     """
+    user_api_key = get_current_api_key(request)
+
     manual = db.query(Manual).filter(Manual.id == manual_id).first()
     if not manual:
         raise HTTPException(status_code=404, detail="Manual not found")
@@ -508,11 +697,13 @@ def refine_manual(
         refined_content = gemini_service.refine_manual_content(
             current_content=content_to_refine,
             instruction=req.instruction,
-            model_name=req.model_name or "gemini-3.5-flash"
+            model_name=req.model_name or "gemini-3.5-flash",
+            api_key=user_api_key
         )
         return ManualRefineResponse(refined_content=refined_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
