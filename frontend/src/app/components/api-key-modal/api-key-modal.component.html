@@ -1,0 +1,152 @@
+<div class="modal-overlay animate-fade-in" *ngIf="isOpen" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="icon-badge">
+          <lucide-icon [name]="KeyIcon"></lucide-icon>
+        </div>
+        <div>
+          <h3 class="modal-title">Gemini APIキーの管理・切り替え</h3>
+          <p class="modal-subtitle">無料枠・有料枠、アカウント権限に応じた複数キーの登録とワンクリック切り替えが可能です</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeModal()" title="閉じる">
+        <lucide-icon [name]="CloseIcon"></lucide-icon>
+      </button>
+    </div>
+
+    <!-- Security Notice -->
+    <div class="security-notice">
+      <lucide-icon [name]="ShieldIcon" class="notice-icon"></lucide-icon>
+      <p>
+        登録されたすべてのAPIキーはAES-256で暗号化され、<strong>HttpOnly Cookie</strong> としてブラウザに安全に保存されます。
+      </p>
+    </div>
+
+    <!-- Section: Registered Keys List -->
+    <div class="registered-keys-section">
+      <div class="section-title-row">
+        <span class="section-title">登録済み API キー一覧 ({{ keysStatus.keys.length }})</span>
+        <span class="status-badge-fallback" *ngIf="keysStatus.using_fallback">
+          システム標準キー使用中 ({{ keysStatus.fallback_masked_key }})
+        </span>
+      </div>
+
+      <div class="keys-list" *ngIf="keysStatus.keys && keysStatus.keys.length > 0">
+        <div 
+          *ngFor="let item of keysStatus.keys" 
+          class="key-item-card"
+          [class.active-key]="item.is_active"
+          (click)="setActiveKey(item)"
+        >
+          <div class="key-item-header">
+            <div class="key-label-wrapper">
+              <span class="key-label-name">{{ item.label }}</span>
+              <span class="active-badge" *ngIf="item.is_active">
+                <lucide-icon [name]="CheckIcon" class="badge-check-icon"></lucide-icon>
+                有効（使用中）
+              </span>
+            </div>
+            <span class="key-masked-val">{{ item.masked_key }}</span>
+          </div>
+
+          <div class="key-item-actions">
+            <button 
+              class="btn-select-key"
+              [class.is-current]="item.is_active"
+              (click)="setActiveKey(item); $event.stopPropagation()"
+              [disabled]="item.is_active || isOperatingId === item.id"
+            >
+              {{ item.is_active ? '使用中' : 'このキーに切り替え' }}
+            </button>
+
+            <button 
+              class="btn-delete-key"
+              (click)="deleteKeyItem(item, $event)"
+              [disabled]="isOperatingId === item.id"
+              title="このキーを削除"
+            >
+              <lucide-icon [name]="TrashIcon" class="icon-left"></lucide-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!keysStatus.keys || keysStatus.keys.length === 0" class="no-keys-banner">
+        <p>個別の API キーが登録されていません。下部のフォームから追加してください。</p>
+      </div>
+    </div>
+
+    <hr class="modal-divider">
+
+    <!-- Section: New Key Registration Form -->
+    <div class="form-section">
+      <h4 class="form-section-title">新しい API キーの追加・登録</h4>
+
+      <div class="input-row">
+        <div class="field-group label-field">
+          <label class="form-label">ラベル名（用途・アカウント名）</label>
+          <div class="input-wrapper">
+            <lucide-icon [name]="TagIcon" class="input-icon"></lucide-icon>
+            <input 
+              type="text" 
+              [(ngModel)]="keyLabelInput" 
+              class="text-input" 
+              placeholder="例: 無料枠キー, 有料プラン" 
+              [disabled]="isSaving"
+            >
+          </div>
+        </div>
+
+        <div class="field-group key-field">
+          <label class="form-label">Gemini API キー</label>
+          <div class="input-wrapper">
+            <input 
+              [type]="showPassword ? 'text' : 'password'" 
+              [(ngModel)]="apiKeyInput" 
+              class="key-input" 
+              placeholder="AIzaSy..." 
+              [disabled]="isSaving"
+            >
+            <button 
+              type="button" 
+              class="toggle-eye-btn" 
+              (click)="togglePasswordVisibility()" 
+              title="表示 / 非表示切り替え"
+            >
+              <lucide-icon [name]="showPassword ? EyeOffIcon : EyeIcon"></lucide-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback Messages -->
+      <div class="alert alert-error animate-fade-in" *ngIf="errorMessage">
+        <lucide-icon [name]="AlertIcon" class="alert-icon"></lucide-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div class="alert alert-success animate-fade-in" *ngIf="successMessage">
+        <lucide-icon [name]="CheckCircleIcon" class="alert-icon"></lucide-icon>
+        <span>{{ successMessage }}</span>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeModal()" [disabled]="isSaving">
+        閉じる
+      </button>
+      <button class="btn btn-primary" (click)="addKey()" [disabled]="isSaving || !apiKeyInput.trim()">
+        <lucide-icon [name]="PlusIcon" class="icon-left" *ngIf="!isSaving"></lucide-icon>
+        <span *ngIf="!isSaving">接続テスト ＆ キーを追加</span>
+        <span *ngIf="isSaving" class="flex-center">
+          <span class="spinner-sm"></span> 検証・追加中...
+        </span>
+      </button>
+    </div>
+
+  </div>
+</div>
