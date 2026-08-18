@@ -69,10 +69,7 @@ class PDFService:
                 font-size: 14pt;
             }
 
-            /* Step Block - Prevents entire procedure step from splitting across page boundary */
             .step-block {
-                page-break-inside: avoid;
-                break-inside: avoid;
                 margin-bottom: 1.5em;
             }
 
@@ -291,21 +288,7 @@ class PDFService:
             html_body
         )
 
-        # Wrap h2/h3 sections into step-blocks to prevent page break splitting
-        pattern = r'(<h[23][^>]*>.*?</h[23]>)'
-        parts = re.split(pattern, html_body, flags=re.DOTALL)
-        
-        wrapped_parts = []
-        if parts[0].strip():
-            wrapped_parts.append(parts[0])
-            
-        for i in range(1, len(parts), 2):
-            heading = parts[i]
-            body_content = parts[i+1] if (i+1) < len(parts) else ""
-            wrapped_parts.append(f'<div class="step-block">{heading}{body_content}</div>')
-            
-        if len(parts) > 1:
-            html_body = "".join(wrapped_parts)
+
 
         template = Template(cls.HTML_TEMPLATE)
         return template.render(
