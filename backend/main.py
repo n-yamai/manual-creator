@@ -40,13 +40,26 @@ run_migrations()
 app = FastAPI(title="Manual Creator API")
 
 # Setup CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # For development, allow all
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# withCredentials: true（認証情報の送信）を行う場合、Access-Control-Allow-Origin にワイルドカード "*" は使用できません。
+# CORS_ORIGINS 環境変数が未指定の場合は、全HTTP/HTTPSオリジンからの接続に対しリクエスト元のOriginを返す allow_origin_regex を適用します。
+cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Ensure media directories exist
 os.makedirs(os.path.join(settings.MEDIA_DIR, "videos"), exist_ok=True)
