@@ -212,6 +212,19 @@ class PDFService:
     """
 
     @staticmethod
+    def _clean_markdown(markdown_content: str) -> str:
+        if not markdown_content:
+            return ""
+
+        # Normalize line endings to \n
+        content = markdown_content.replace('\r\n', '\n').replace('\r', '\n')
+
+        # Fix spacing between ![] and () for images e.g. ![alt] (url) -> ![alt](url)
+        content = re.sub(r'!\s*\[([^\]]*)\]\s*\(\s*([^)]+)\s*\)', r'![\1](\2)', content)
+
+        return content
+
+    @staticmethod
     def _convert_image_paths_to_absolute(markdown_content: str) -> str:
         """
         Converts relative image paths like 'images/foo.png' or '/media/images/foo.png'
@@ -219,10 +232,18 @@ class PDFService:
         """
         def replace_path(match):
             img_alt = match.group(1)
-            img_path = match.group(2)
+            img_path = match.group(2).strip()
             
-            filename = os.path.basename(img_path)
-            absolute_path = f"file://{settings.MEDIA_DIR}/images/{filename}"
+            # Remove query parameters like ?v=123 or hash anchors
+            clean_path = img_path.split('?')[0].split('#')[0]
+            filename = os.path.basename(clean_path)
+            
+            # Normalize path for WeasyPrint (use forward slashes for file://)
+            media_dir_clean = os.path.abspath(settings.MEDIA_DIR).replace('\\', '/')
+            if not media_dir_clean.startswith('/'):
+                media_dir_clean = '/' + media_dir_clean
+                
+            absolute_path = f"file://{media_dir_clean}/images/{filename}"
             return f"![{img_alt}]({absolute_path})"
 
         pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
@@ -236,9 +257,10 @@ class PDFService:
         """
         def replace_to_base64(match):
             img_alt = match.group(1)
-            img_path = match.group(2)
+            img_path = match.group(2).strip()
             
-            filename = os.path.basename(img_path)
+            clean_path = img_path.split('?')[0].split('#')[0]
+            filename = os.path.basename(clean_path)
             abs_path = os.path.join(settings.MEDIA_DIR, "images", filename)
             
             if os.path.exists(abs_path):
@@ -264,21 +286,24 @@ class PDFService:
         Converts Markdown to a full HTML document using the custom template.
         If embed_base64 is True, local images are embedded directly as Data URIs.
         """
+        markdown_content = cls._clean_markdown(markdown_content)
+
         if embed_base64:
             markdown_content = cls._embed_images_as_base64(markdown_content)
 
         # Convert custom pagebreak tags (<!-- pagebreak --> or [pagebreak]) to HTML div
+        # Ensure proper empty lines around the pagebreak div so it does not break Markdown parsing
         markdown_content = re.sub(
             r'<!--\s*pagebreak\s*-->|\[pagebreak\]',
-            '<div class="page-break"></div>',
+            '\n\n<div class="page-break"></div>\n\n',
             markdown_content,
             flags=re.IGNORECASE
         )
 
-        # Convert markdown to html (with table and other extensions)
+        # Convert markdown to html with sane_lists and nl2br extensions
         html_body = markdown.markdown(
             markdown_content,
-            extensions=['extra', 'codehilite', 'toc']
+            extensions=['extra', 'codehilite', 'toc', 'sane_lists', 'nl2br']
         )
         
         # Wrap images in container divs for styling
@@ -288,8 +313,6 @@ class PDFService:
             html_body
         )
 
-
-
         template = Template(cls.HTML_TEMPLATE)
         return template.render(
             title=title,
@@ -297,12 +320,12 @@ class PDFService:
             created_at=created_at_str
         )
 
-
     @classmethod
     def generate_pdf(cls, title: str, markdown_content: str, created_at_str: str, output_path: str):
         """
         Generates a PDF file from Markdown content.
         """
+        markdown_content = cls._clean_markdown(markdown_content)
         # WeasyPrint requires local file:/// paths for local images
         processed_markdown = cls._convert_image_paths_to_absolute(markdown_content)
         html_content = cls.generate_html(title, processed_markdown, created_at_str, embed_base64=False)

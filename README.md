@@ -102,6 +102,7 @@ flowchart TB
 ### 4. 多彩なフォーマットでのエクスポート
 * **PDFドキュメント**:
   * WeasyPrint を用いた高品質な A4 印刷レイアウト出力。
+  * **プレビュー完全一致のレンダリング最適化 (NEW 🎯)**: 改行・リスト拡張機能 (`nl2br`, `sane_lists`) の導入、改行コードの正規化、画像クエリトリムおよびブロック要素破綻を防ぐ空行挿入により、リアルタイムプレビュー通りの美しいPDF/HTMLを出力。
   * **明示的改ページ制御 (NEW 📄)**: 本文内に `<!-- pagebreak -->` または `[pagebreak]` を記述（エディタの「改ページを挿入」ボタンでワンクリック挿入）することで、指定した特定位置で確実に強制改ページを実行。
   * **改ページまたぎ防止**: 手順ブロック (`.step-block`) の境界泣き別れを完全に防ぐ `break-inside: avoid;` 制御。
   * **画像自動スケーリング (NEW 🖼)**: A4 ページの縦幅に合わせて画像を最適高さへ自動縮小 (`max-height: 105mm; object-fit: contain;`)。
@@ -161,6 +162,8 @@ cp .env.example .env
 `.env` 内を編集:
 ```env
 GEMINI_API_KEY=your_actual_gemini_api_key_here
+SECRET_KEY=your_secret_key_here
+# CORS_ORIGINS=http://localhost:4202  # 接続元オリジンを制限する場合のみ指定
 ```
 
 ### 3. Docker コンテナのビルドと起動
