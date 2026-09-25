@@ -212,7 +212,16 @@
         </div>
 
         <!-- Submit Button -->
-        <div class="form-actions">
+        <div class="form-actions" style="display: flex; gap: 1rem; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+          <button 
+            class="btn btn-secondary btn-direct-edit" 
+            [disabled]="!selectedFile || isUploading || isGenerating"
+            (click)="createManualWithoutAi()"
+            title="AIによる自動生成を行わず、動画を保存して直接編集画面へ移動します"
+          >
+            <lucide-icon [name]="EditIcon" class="icon-left"></lucide-icon>
+            {{ isUploading ? 'アップロード中...' : '編集画面へ遷移' }}
+          </button>
           <button 
             class="btn btn-primary btn-submit" 
             [disabled]="!selectedFile || isUploading || isGenerating"

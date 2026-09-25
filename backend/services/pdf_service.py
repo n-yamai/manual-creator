@@ -330,3 +330,4 @@ class PDFService:
         processed_markdown = cls._convert_image_paths_to_absolute(markdown_content)
         html_content = cls.generate_html(title, processed_markdown, created_at_str, embed_base64=False)
         HTML(string=html_content).write_pdf(output_path)
+

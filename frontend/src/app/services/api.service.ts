@@ -124,7 +124,7 @@ export class ApiService {
     return this.http.delete<any>(`${this.apiUrl}/manuals/${id}`, this.defaultOptions);
   }
 
-  uploadVideo(file: File, promptInstruction?: string, modelName?: string): Observable<{ status: string; progress?: number; body?: Manual }> {
+  uploadVideo(file: File, promptInstruction?: string, modelName?: string, skipAi: boolean = false): Observable<{ status: string; progress?: number; body?: Manual }> {
     const formData = new FormData();
     formData.append('file', file);
     if (promptInstruction) {
@@ -132,6 +132,9 @@ export class ApiService {
     }
     if (modelName) {
       formData.append('model_name', modelName);
+    }
+    if (skipAi) {
+      formData.append('skip_ai', 'true');
     }
 
     return this.http.post<Manual>(`${this.apiUrl}/manuals/upload`, formData, {

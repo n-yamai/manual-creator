@@ -395,11 +395,12 @@ async def upload_and_generate_manual(
     file: UploadFile = File(...),
     prompt_instruction: Optional[str] = Form(None),
     model_name: Optional[str] = Form("gemini-3.5-flash"),
+    skip_ai: Optional[bool] = Form(False),
     db: Session = Depends(get_db)
 ):
     """
-    Uploads a video, calls Gemini API to extract manual content, 
-    cuts recommended frames, and saves everything.
+    Uploads a video. If skip_ai is False, calls Gemini API to extract manual content.
+    If skip_ai is True, creates an empty manual tied to the video and skips AI generation.
     """
     user_api_key = get_current_api_key(request)
 
@@ -414,6 +415,21 @@ async def upload_and_generate_manual(
             shutil.copyfileobj(file.file, buffer)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save video: {str(e)}")
+
+    # Base title from original filename
+    orig_name = os.path.splitext(file.filename)[0] if file.filename else "新規動画マニュアル"
+
+    # If skip_ai is True, skip Gemini API and return a manual tied to the video immediately
+    if skip_ai:
+        db_manual = Manual(
+            title=orig_name,
+            content=f"# {orig_name}\n\n動画から手動で静止画を切り出したり、手順を記述してください。",
+            video_path=video_save_path
+        )
+        db.add(db_manual)
+        db.commit()
+        db.refresh(db_manual)
+        return db_manual
 
     # 2. Process with Gemini API
     try:

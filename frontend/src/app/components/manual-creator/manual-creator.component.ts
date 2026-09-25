@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   Plus,
   FileText,
-  Key
+  Key,
+  Edit
 } from 'lucide-angular';
 
 @Component({
@@ -91,6 +92,7 @@ export class ManualCreatorComponent implements OnInit {
   PlusIcon = Plus;
   FileTextIcon = FileText;
   KeyIcon = Key;
+  EditIcon = Edit;
   activeKeyLabel: string | null = null;
 
   constructor(private apiService: ApiService, private router: Router) {}
@@ -171,6 +173,41 @@ export class ManualCreatorComponent implements OnInit {
     } else {
       this.errorMessage = '動画ファイル (MP4, MOV など) をドラッグ＆ドロップしてください。';
     }
+  }
+
+  createManualWithoutAi(): void {
+    if (!this.selectedFile) {
+      this.errorMessage = '動画ファイルを選択してください。';
+      return;
+    }
+
+    this.isUploading = true;
+    this.uploadProgress = 0;
+    this.errorMessage = '';
+
+    this.apiService.uploadVideo(this.selectedFile, undefined, undefined, true).subscribe({
+      next: (res) => {
+        if (res.status === 'progress') {
+          this.uploadProgress = res.progress || 0;
+          if (this.uploadProgress === 100) {
+            this.isUploading = false;
+          }
+        } else if (res.status === 'completed' && res.body) {
+          this.isUploading = false;
+          this.router.navigate(['/edit', res.body.id]);
+        }
+      },
+      error: (err) => {
+        this.isUploading = false;
+        const apiDetail = err.error?.detail;
+        if (apiDetail && typeof apiDetail === 'string') {
+          this.errorMessage = apiDetail;
+        } else {
+          this.errorMessage = '動画のアップロード中にエラーが発生しました。ネットワーク接続をご確認ください。';
+        }
+        console.error(err);
+      }
+    });
   }
 
   generateManual(): void {
