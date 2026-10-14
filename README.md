@@ -6,7 +6,7 @@
 
 ## 🏛 システムアーキテクチャ
 
-本アプリケーションは、**Docker Compose** によるマルチコンテナ構成（Angular + FastAPI + PostgreSQL）で構築されており、外部AI（Google Gemini 3.5 Flash）および OpenCV / WeasyPrint エンジンと連携して動作します。
+本アプリケーションは、**Docker Compose** によるマルチコンテナ構成（Angular + FastAPI + PostgreSQL）で構築されており、外部AI（Google Gemini 3.8 Flash / Gemini 4 Argon）および OpenCV / WeasyPrint エンジンと連携して動作します。
 
 ### アーキテクチャ構成図
 
@@ -29,7 +29,7 @@ flowchart TB
     end
 
     subgraph External["☁️ 外部AIサービス"]
-        Gemini["Google Gemini API\n(gemini-3.5-flash)"]
+        Gemini["Google Gemini API\n(gemini-3.8-flash)"]
     end
 
     subgraph BackendServices["⚙️ バックエンド処理モジュール"]
@@ -65,9 +65,10 @@ flowchart TB
   * 無料枠／有料枠、個人／チーム権限に応じた複数の Gemini API キーを用途ラベル（例: `無料枠`, `有料プラン`）付きで登録・保存。
   * **Fernet (AES-128)** アルゴリズムで暗号化し、ブラウザの `HttpOnly Cookie` に保存。クライアント側に生のキーを一切露出させない安全設計。
   * ヘッダーのボタンからワンクリックで使用する API キーを即座に切り替え可能。
-* **Gemini ListModels 連携による利用可能モデル動的取得・突合 (NEW 🤖)**:
-  * APIキー切り替え時に Gemini の `ListModels` API をリアルタイム呼び出し、そのキーで利用可能なモデル（`Gemini 3.5 Flash`, `Gemini 3.6 Flash`, `Gemini 3.5 Flash Lite`, `Gemini 3 Pro Preview`, `Gemini 2.5 Pro`）を動的制御。
-  * 利用不可のモデルはカード選択を非活性化し「(利用不可)」バッジを表示。
+* **Gemini ListModels 連携 & プラン別（無料版/有料版）対応状況の明記 (NEW 🤖)**:
+  * APIキー切り替え時に Gemini の `ListModels` API をリアルタイム呼び出し、そのキーで利用可能なモデル（`Gemini 3.8 Flash`, `Gemini 4 Argon`, `Gemini 3.5 Flash Lite`, `Gemini 3.1 Pro Preview`, `Gemini 2.5 Flash`, `Gemini 2.5 Pro`）を動的制御。
+  * 各モデルカードおよびエディタの選択肢に「無料版: ◯ 利用可 / ✕ 不可」「有料版: ◯ 利用可 / ✕ 不可」の対応状況を視認性の高いバッジで明記。
+  * アカウント権限外・クォータ外のモデルはカード選択を自動で非活性化し「(利用不可)」バッジを表示。
 * **静止画の自動切り出し**: OpenCV を活用し、AIが推奨するキーフレーム（タイムスタンプ）から静止画を自動抽出し、手順書へ埋め込み。
 * **プロンプトカスタマイズ**: 生成時に「初心者に分かりやすく」「安全確認を重視」などの追加指示を設定可能。
 

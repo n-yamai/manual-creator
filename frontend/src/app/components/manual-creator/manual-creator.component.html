@@ -135,7 +135,7 @@
             </div>
             <div>
               <h3 class="card-title">2. 解析に使用するAIモデル</h3>
-              <p class="card-subtitle">解析スピードや推論精度に応じたGeminiモデルを選択できます（デフォルト: Gemini 3.5 Flash）。</p>
+              <p class="card-subtitle">解析スピードや推論精度に応じたGeminiモデルを選択できます（デフォルト: Gemini 3.8 Flash）。</p>
             </div>
           </div>
 
@@ -165,6 +165,14 @@
                 </span>
               </div>
               <p class="model-desc">{{ model.description }}</p>
+              <div class="model-tiers-info">
+                <span class="tier-pill" [class.tier-supported]="model.free_tier" [class.tier-unsupported]="!model.free_tier">
+                  無料版: {{ model.free_tier ? '◯ 利用可' : '✕ 不可' }}
+                </span>
+                <span class="tier-pill" [class.tier-supported]="model.paid_tier" [class.tier-unsupported]="!model.paid_tier">
+                  有料版: {{ model.paid_tier ? '◯ 利用可' : '✕ 不可' }}
+                </span>
+              </div>
             </label>
           </div>
         </div>
@@ -206,7 +214,7 @@
 
             <div class="status-text" *ngIf="isGenerating">
               <h4>AIが動画と音声を解析し手順書を自動生成中...</h4>
-              <p>Gemini 3.5 Flash が映像から重要な操作フレームを抽出・文章化しています（通常10〜30秒程度かかります）</p>
+              <p>AIモデルが映像から重要な操作フレームを抽出・文章化しています（通常15〜45秒程度かかります）</p>
             </div>
           </div>
         </div>

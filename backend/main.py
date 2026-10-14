@@ -394,7 +394,7 @@ async def upload_and_generate_manual(
     request: Request,
     file: UploadFile = File(...),
     prompt_instruction: Optional[str] = Form(None),
-    model_name: Optional[str] = Form("gemini-3.5-flash"),
+    model_name: Optional[str] = Form("gemini-3.8-flash"),
     skip_ai: Optional[bool] = Form(False),
     db: Session = Depends(get_db)
 ):
@@ -433,7 +433,7 @@ async def upload_and_generate_manual(
 
     # 2. Process with Gemini API
     try:
-        selected_model = model_name if model_name else "gemini-3.5-flash"
+        selected_model = model_name if model_name else "gemini-3.8-flash"
         gen_result = gemini_service.generate_manual_from_video(
             video_path=video_save_path,
             user_instruction=prompt_instruction,
@@ -726,7 +726,7 @@ def refine_manual(
         refined_content = gemini_service.refine_manual_content(
             current_content=content_to_refine,
             instruction=req.instruction,
-            model_name=req.model_name or "gemini-3.5-flash",
+            model_name=req.model_name or "gemini-3.8-flash",
             api_key=user_api_key
         )
         return ManualRefineResponse(refined_content=refined_content)

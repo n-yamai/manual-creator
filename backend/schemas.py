@@ -59,7 +59,7 @@ class GenerateRequest(BaseModel):
 class ManualRefineRequest(BaseModel):
     instruction: str
     current_content: str
-    model_name: Optional[str] = "gemini-3.5-flash"
+    model_name: Optional[str] = "gemini-3.8-flash"
 
     model_config = {'protected_namespaces': ()}
 
@@ -103,5 +103,7 @@ class AiModelResponse(BaseModel):
     badge: Optional[str] = None
     badgeClass: Optional[str] = None
     available: bool = True
+    free_tier: bool = True  # 無料版（Free Tier）で利用可能か
+    paid_tier: bool = True  # 有料版（Paid Tier）で利用可能か
 
 

@@ -30,6 +30,8 @@ export interface AiModel {
   badge?: string;
   badgeClass?: string;
   available?: boolean;
+  free_tier?: boolean;
+  paid_tier?: boolean;
 }
 
 export interface ApiKeyItem {
@@ -182,7 +184,7 @@ export class ApiService {
     return this.http.post<ManualImage>(`${this.apiUrl}/manuals/${manualId}/images/${imageId}/update`, formData, this.defaultOptions);
   }
 
-  refineManual(manualId: number, instruction: string, currentContent: string, modelName: string = 'gemini-3.5-flash'): Observable<{ refined_content: string }> {
+  refineManual(manualId: number, instruction: string, currentContent: string, modelName: string = 'gemini-3.8-flash'): Observable<{ refined_content: string }> {
     return this.http.post<{ refined_content: string }>(`${this.apiUrl}/manuals/${manualId}/refine`, {
       instruction,
       current_content: currentContent,

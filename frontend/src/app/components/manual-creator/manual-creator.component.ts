@@ -29,7 +29,7 @@ import {
 export class ManualCreatorComponent implements OnInit {
   selectedFile: File | null = null;
   promptInstruction = '';
-  selectedModel = 'gemini-3.5-flash';
+  selectedModel = 'gemini-3.8-flash';
   uploadProgress = 0;
   isUploading = false;
   isGenerating = false;
@@ -40,20 +40,24 @@ export class ManualCreatorComponent implements OnInit {
 
   aiModels: any[] = [
     {
-      id: 'gemini-3.5-flash',
-      name: 'Gemini 3.5 Flash',
+      id: 'gemini-3.8-flash',
+      name: 'Gemini 3.8 Flash',
       badge: '推奨 (標準)',
       badgeClass: 'badge-recommended',
-      description: '高速かつバランスの取れた標準モデル。画像・音声の高品質なステップ解析を行います。',
-      available: true
+      description: '高速かつ高精度な最新フラグシップ Flash モデル。マルチモーダル動画解析に最適です。',
+      available: true,
+      free_tier: true,
+      paid_tier: true
     },
     {
-      id: 'gemini-3.6-flash',
-      name: 'Gemini 3.6 Flash',
-      badge: '最新 Flash',
-      badgeClass: 'badge-new',
-      description: '最新フラグシップ Flash モデル。高度で精度の高い理解能力を備えます。',
-      available: true
+      id: 'gemini-4-argon',
+      name: 'Gemini 4 Argon',
+      badge: '最高峰 Flagship',
+      badgeClass: 'badge-flagship',
+      description: '最先端の推論能力を持つ最高峰モデル。複雑な業務操作や専門性の高い動画を極めて精密に解析・文章化します（有料版専用）。',
+      available: true,
+      free_tier: false,
+      paid_tier: true
     },
     {
       id: 'gemini-3.5-flash-lite',
@@ -61,23 +65,39 @@ export class ManualCreatorComponent implements OnInit {
       badge: '超高速',
       badgeClass: 'badge-lite',
       description: '処理スピード最優先の軽量モデル。迅速にドラフト作成したい場合に最適です。',
-      available: true
+      available: true,
+      free_tier: true,
+      paid_tier: true
     },
     {
-      id: 'gemini-3-pro-preview',
-      name: 'Gemini 3 Pro Preview',
+      id: 'gemini-3.1-pro-preview',
+      name: 'Gemini 3.1 Pro Preview',
       badge: '高精度 Pro',
       badgeClass: 'badge-pro',
-      description: '深い推論と複雑な手順解析が可能な最高精度 Pro モデル。',
-      available: true
+      description: '深い推論と複雑な手順解析が可能な最新 Pro モデル。論理的な構成力に優れます（有料版専用）。',
+      available: true,
+      free_tier: false,
+      paid_tier: true
+    },
+    {
+      id: 'gemini-2.5-flash',
+      name: 'Gemini 2.5 Flash',
+      badge: '2.5 安定版',
+      badgeClass: 'badge-stable',
+      description: '実績のある 2.5 世代の安定版 Flash モデル。',
+      available: true,
+      free_tier: true,
+      paid_tier: true
     },
     {
       id: 'gemini-2.5-pro',
       name: 'Gemini 2.5 Pro',
       badge: 'Pro 安定版',
       badgeClass: 'badge-pro',
-      description: '安定性に優れた Pro グレードモデル。',
-      available: true
+      description: '安定性に優れた 2.5 世代の Pro グレードモデル。',
+      available: true,
+      free_tier: true,
+      paid_tier: true
     }
   ];
 

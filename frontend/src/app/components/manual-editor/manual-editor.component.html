@@ -313,7 +313,7 @@
                 [value]="model.id" 
                 [disabled]="model.available === false"
               >
-                {{ model.name }} {{ model.available === false ? '(利用不可)' : (model.badge ? '(' + model.badge + ')' : '') }}
+                {{ model.name }} [{{ model.free_tier ? '無料/有料' : '有料専用' }}]{{ model.available === false ? ' (利用不可)' : (model.badge ? ' - ' + model.badge : '') }}
               </option>
             </select>
           </div>

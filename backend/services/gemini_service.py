@@ -57,39 +57,58 @@ def parse_gemini_error(e: Exception) -> str:
 
 PREDEFINED_MODELS = [
     {
-        "id": "gemini-3.5-flash",
-        "name": "Gemini 3.5 Flash",
+        "id": "gemini-3.8-flash",
+        "name": "Gemini 3.8 Flash",
         "badge": "推奨 (標準)",
         "badgeClass": "badge-recommended",
-        "description": "高速かつバランスの取れた標準モデル。画像・音声の高品質なステップ解析を行います。"
+        "description": "高速かつ高精度な最新フラグシップ Flash モデル。マルチモーダル動画解析に最適です。",
+        "free_tier": True,
+        "paid_tier": True
     },
     {
-        "id": "gemini-3.6-flash",
-        "name": "Gemini 3.6 Flash",
-        "badge": "最新 Flash",
-        "badgeClass": "badge-new",
-        "description": "最新フラグシップ Flash モデル。高度で精度の高い理解能力を備えます。"
+        "id": "gemini-4-argon",
+        "name": "Gemini 4 Argon",
+        "badge": "最高峰 Flagship",
+        "badgeClass": "badge-flagship",
+        "description": "最先端の推論能力を持つ最高峰モデル。複雑な業務操作や専門性の高い動画を極めて精密に解析・文章化します（有料版専用）。",
+        "free_tier": False,
+        "paid_tier": True
     },
     {
         "id": "gemini-3.5-flash-lite",
         "name": "Gemini 3.5 Flash Lite",
         "badge": "超高速",
         "badgeClass": "badge-lite",
-        "description": "処理スピード最優先の軽量モデル。迅速にドラフト作成したい場合に最適です。"
+        "description": "処理スピード最優先の軽量モデル。迅速にドラフト作成したい場合に最適です。",
+        "free_tier": True,
+        "paid_tier": True
     },
     {
-        "id": "gemini-3-pro-preview",
-        "name": "Gemini 3 Pro Preview",
+        "id": "gemini-3.1-pro-preview",
+        "name": "Gemini 3.1 Pro Preview",
         "badge": "高精度 Pro",
         "badgeClass": "badge-pro",
-        "description": "深い推論と複雑な手順解析が可能な最高精度 Pro モデル。"
+        "description": "深い推論と複雑な手順解析が可能な最新 Pro モデル。論理的な構成力に優れます（有料版専用）。",
+        "free_tier": False,
+        "paid_tier": True
+    },
+    {
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "badge": "2.5 安定版",
+        "badgeClass": "badge-stable",
+        "description": "実績のある 2.5 世代の安定版 Flash モデル。",
+        "free_tier": True,
+        "paid_tier": True
     },
     {
         "id": "gemini-2.5-pro",
         "name": "Gemini 2.5 Pro",
         "badge": "Pro 安定版",
         "badgeClass": "badge-pro",
-        "description": "安定性に優れた Pro グレードモデル。"
+        "description": "安定性に優れた 2.5 世代の Pro グレードモデル。",
+        "free_tier": True,
+        "paid_tier": True
     }
 ]
 
@@ -120,12 +139,13 @@ class GeminiService:
         result_models = []
         for model_def in PREDEFINED_MODELS:
             item = dict(model_def)
-            item["available"] = item["id"] in fetched_ids
+            # APIキー未設定や一覧取得エラー時（fetched_idsが空）はデフォルトTrueとしてフォールバック
+            item["available"] = (item["id"] in fetched_ids) if fetched_ids else True
             result_models.append(item)
 
         return result_models
 
-    def generate_manual_from_video(self, video_path: str, user_instruction: str = None, model_name: str = "gemini-3.5-flash", api_key: Optional[str] = None) -> ManualGenerationResult:
+    def generate_manual_from_video(self, video_path: str, user_instruction: str = None, model_name: str = "gemini-3.8-flash", api_key: Optional[str] = None) -> ManualGenerationResult:
         """
         Uploads a video to Gemini API, analyzes it, and generates a structured manual
         with Markdown content and recommended keyframe timestamps using the specified model and user API key.
@@ -179,7 +199,7 @@ class GeminiService:
         if user_instruction:
             prompt += f"\n【追加のユーザー指示】:\n{user_instruction}\n（※ユーザー指示が含まれる場合も、必ず最終出力テキストはすべて日本語で記述してください。）\n"
 
-        target_model = model_name if model_name else "gemini-3.5-flash"
+        target_model = model_name if model_name else "gemini-3.8-flash"
 
         try:
             # Request specified Gemini Model
@@ -213,11 +233,11 @@ class GeminiService:
                 pass
             raise RuntimeError(detailed_msg) from e
 
-    def refine_manual_content(self, current_content: str, instruction: str, model_name: str = "gemini-3.5-flash", api_key: Optional[str] = None) -> str:
+    def refine_manual_content(self, current_content: str, instruction: str, model_name: str = "gemini-3.8-flash", api_key: Optional[str] = None) -> str:
         """
         Refines and rewrites the current manual Markdown content based on user prompt instructions using user API key.
         """
-        target_model = model_name if model_name else "gemini-3.5-flash"
+        target_model = model_name if model_name else "gemini-3.8-flash"
         logger.info(f"Refining manual content using Gemini (Model: {target_model})...")
         client = self.get_client(api_key)
 

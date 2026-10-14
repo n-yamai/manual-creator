@@ -75,7 +75,7 @@ export class ManualEditorComponent implements OnInit {
 
   // Model selection state
   aiModels: AiModel[] = [];
-  selectedRefineModel = 'gemini-3.5-flash';
+  selectedRefineModel = 'gemini-3.8-flash';
   isLoadingModels = false;
 
   // Tab control (useful on mobile/tablet)
