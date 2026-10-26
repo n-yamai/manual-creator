@@ -12,8 +12,13 @@
 
 ```mermaid
 flowchart TB
-    subgraph Client["💻 クライアント (Web Browser)"]
+    subgraph Client["💻 クライアント / 管理者"]
         UI["Angular 18 UI\n(Precision Flow Design System)\n[Port: 4202]"]
+        CLI["シェルスクリプト\n(scripts/backup.sh / restore.sh)"]
+    end
+
+    subgraph HostStorage["📂 ホスト永続化ストレージ"]
+        BackupsDir["./backups/ (backend/backups/)\n(backup_YYYYMMDD_HHMMSS.tar.gz)"]
     end
 
     subgraph DockerEnv["🐳 Docker コンテナ環境"]
@@ -35,6 +40,7 @@ flowchart TB
     subgraph BackendServices["⚙️ バックエンド処理モジュール"]
         OpenCV["OpenCV フレーム抽出エンジン\n(自動補正・クランプ機能付き)"]
         PDFGen["WeasyPrint PDF生成エンジン\n(Base64画像自動埋め込み & 改ページ制御)"]
+        BackupSvc["BackupService\n(DB論理ダンプ & メディア一括圧縮・復元)"]
     end
 
     UI <-->|"HTTP / REST API (JSON / FormData)"| BE_Container
@@ -42,11 +48,18 @@ flowchart TB
     BE_Container <-->|"google-genai SDK\n(動画・音声の包括解析)"| Gemini
     BE_Container -->|"タイムスタンプ切り出し指示"| OpenCV
     BE_Container -->|"HTML / PDF 変換"| PDFGen
+    BE_Container <-->|"バックアップ・リストア"| BackupSvc
     
     OpenCV -->|"静止画保存 (.png)"| Images
     BE_Container -->|"動画ファイル保存"| Videos
     BE_Container <-->|"編集済み画像上書き保存"| Images
     PDFGen -->|"PDFファイル保存"| PDFs
+    
+    BackupSvc <-->|"pg_dump / psql / SQL"| DB_Container
+    BackupSvc <-->|"動画・画像収集 & 展開"| SharedMedia
+    BackupSvc <-->|"アーカイブ保存・読込"| BackupsDir
+    CLI <-->|"docker exec / cp による一括退避・復元"| DockerEnv
+    CLI <-->|"アーカイブ保存・読込"| BackupsDir
     
     UI -->|"静止画・動画の配信"| SharedMedia
 ```
@@ -120,6 +133,13 @@ flowchart TB
 * カード形式での手順書一覧表示、検索・編集・削除機能。
 * サイドバーからの直近作成・更新手順書（5件）へのダイレクトアクセス。
 
+### 7. バックアップ・復元（リストア）機能 (NEW 💾)
+* **DBダンプ＋動画＋画像の一括保護**:
+  * PostgreSQL の論理ダンプ（`db_dump.sql`）、アップロード動画（`media/videos/`）、切り出し・注釈編集済み・追加画像（`media/images/`）を単一の日時付きアーカイブ（`backup_YYYYMMDD_HHMMSS.tar.gz`）として `./backups/` に保存。
+* **シェルスクリプト & Web管理画面の両対応（完全相互互換）**:
+  * **ホスト側シェルスクリプト**: `./scripts/backup.sh` でバックアップ作成、`./scripts/restore.sh <アーカイブパス>` でリストアを実行可能。
+  * **Web管理画面（UI）**: ダッシュボードの「バックアップ・復元」モーダルからワンクリックでバックアップ作成、一覧確認、PCへの `.tar.gz` ダウンロード、および保存済みアーカイブや手元の `.tar.gz` ファイルのアップロードによる完全復元に対応。
+
 ---
 
 ## 🛠 技術スタック
@@ -180,6 +200,89 @@ docker-compose up --build -d
 
 ---
 
+## 💾 バックアップ・復元（リストア）手順
+
+アプリケーションの破損や誤操作、Dockerボリューム消失などのトラブルに備え、**「① Web画面（UI）」** と **「② ホスト側シェルスクリプト」** の2通りの方法でバックアップと復元（リストア）を行えます。  
+どちらの方法で作成したバックアップファイルも同じ構造（`.tar.gz`）を持つため、相互に利用・復元が可能です。
+
+### 📦 バックアップ対象とアーカイブ内部構造
+1回のバックアップ実行ごとに、`./backups/`（実体は `backend/backups/`）配下に日時付きアーカイブファイル `backup_YYYYMMDD_HHMMSS.tar.gz` が作成されます（※世代の自動削除は行わず、手動で管理する仕様です）。
+
+```text
+backup_YYYYMMDD_HHMMSS.tar.gz
+├── backup_meta.json       # バックアップメタ情報（作成日時・手順書数・動画数・画像数・作成元）
+├── db_dump.sql            # PostgreSQL データベース論理ダンプ（manuals / manual_images テーブル・シーケンス）
+└── media/
+    ├── videos/            # アップロードされた全動画ファイル (.mp4 等)
+    └── images/            # 切り出し静止画・Canvas注釈編集済み画像・手動アップロード画像 (.png / .jpg 等)
+```
+
+---
+
+### 方法①：Web管理画面（ブラウザUI）から操作する
+
+1. **管理モーダルを開く**
+   * ダッシュボード画面（`http://localhost:4202`）の左サイドバーにある **「バックアップ・復元」**、または画面右上ヘッダーの **「バックアップ」** ボタンをクリックします。
+2. **新規バックアップの作成**
+   * モーダル上部の **「＋ 新規バックアップを作成」** ボタンをクリックすると、現在のDBデータ・動画・画像が一括で `./backups/` にアーカイブ保存されます。
+3. **PCへのダウンロード保管**
+   * 「保存済みバックアップ一覧」に表示されている各バックアップの **「DL」** ボタンをクリックすると、`.tar.gz` ファイルを手元のPCや外部ストレージへ直接ダウンロードして退避できます。
+4. **バックアップからの復元（リストア）**
+   * **サーバー上の履歴から復元**: 一覧内の対象バックアップにある **「復元」** ボタンをクリックし、確認ダイアログで「OK」を選択すると、その時点のDB・動画・画像の状態へ完全復元されます。
+   * **手元のファイルから復元**: モーダル下部の「手元のバックアップファイル（.tar.gz）から復元」にてPC内の `.tar.gz` ファイルを選択し、**「アップロードして復元」** ボタンをクリックすることで復元できます。
+5. **不要なバックアップの削除**
+   * 一覧右端のゴミ箱アイコンをクリックすると、サーバー上のバックアップアーカイブを手動で削除できます。
+
+---
+
+### 方法②：シェルスクリプト（ターミナル / CLI）から操作する
+
+プロジェクトルート（`manual-creator/`）から以下のスクリプトを実行できます。cron 等による定期実行にも対応しています。
+
+#### 1. バックアップの取得 (`./scripts/backup.sh`)
+```bash
+./scripts/backup.sh
+```
+* **実行結果イメージ**:
+  ```text
+  ============================================================
+   📦 ManualAI バックアップ処理を開始します
+   実行日時: 2026-10-26 16:43:46
+  ============================================================
+  ➡️  [1/3] データベース (manual_db) のダンプを取得しています...
+  ➡️  [2/3] アップロード動画および画像ファイルを収集しています...
+  ➡️  [3/3] アーカイブファイル (backup_20261026_164346.tar.gz) を圧縮生成しています...
+  ============================================================
+   ✅ バックアップが正常に完了しました！
+  ------------------------------------------------------------
+   📄 保存ファイル : /Volumes/SSD/Antigravity/manual-creator/backups/backup_20261026_164346.tar.gz
+   💾 ファイル容量 : 60M
+   📚 手順書データ : 4 件
+   🎥 動画ファイル : 5 件
+   🖼  画像ファイル : 22 件
+  ============================================================
+  ```
+
+#### 2. 保存済みバックアップ一覧の確認 (`./scripts/restore.sh` 引数なし)
+```bash
+./scripts/restore.sh
+```
+* 引数を指定せずに実行すると、現在 `./backups/` 内に保存されているバックアップファイルの一覧とファイルサイズが表示されます。
+
+#### 3. バックアップからの復元 (`./scripts/restore.sh <ファイルパス>`)
+```bash
+# 対話確認ありで復元を実行（ファイル名のみの指定でも ./backups/ 内を自動参照します）
+./scripts/restore.sh ./backups/backup_20261026_164346.tar.gz
+
+# 確認プロンプトをスキップして即時復元する場合（-y または --yes オプション）
+./scripts/restore.sh -y backup_20261026_164346.tar.gz
+```
+
+> **⚠️ 復元（リストア）時の注意事項**  
+> 復元を実行すると、現在のデータベース内の手順書データおよび `/app/media/videos/`・`/app/media/images/` 内のメディアファイルは、**指定したバックアップ時点の状態に上書き（置換）**されます。重要な変更がある場合は、復元前に一度新規バックアップを作成しておくことを推奨します。
+
+---
+
 ## 📜 変更履歴 (Release History)
 
 各バージョンの詳細な機能追加・不具合修正の履歴については [HISTORY.md](./HISTORY.md) をご参照ください。
@@ -194,18 +297,22 @@ manual-creator/
 ├── .env.example              # 環境変数設定テンプレート
 ├── README.md                 # プロジェクトドキュメント
 ├── HISTORY.md                # 変更・リリース履歴ログ
+├── scripts/                  # バックアップ・復元用シェルスクリプト
+│   ├── backup.sh             # DBダンプ＋動画・画像の一括バックアップ取得
+│   └── restore.sh            # アーカイブ (.tar.gz) からの一括リストア
+├── backups/                  # バックアップアーカイブ保存先 (backend/backups へのリンク)
 ├── backend/                  # FastAPI バックエンド
 │   ├── Dockerfile
-│   ├── main.py               # API エンドポイント (画像編集・HTML/PDF生成・AI補正)
+│   ├── main.py               # API エンドポイント (画像編集・HTML/PDF生成・AI補正・バックアップ)
 │   ├── models.py             # PostgreSQL データモデル
 │   ├── schemas.py            # リクエスト/レスポンススキーマ
 │   ├── requirements.txt      # Python パッケージ依存一覧
-│   └── services/             # Gemini API, OpenCV, PDF 生成サービス
+│   └── services/             # Gemini API, OpenCV, PDF 生成, Backup サービス
 └── frontend/                 # Angular フロントエンド
     ├── Dockerfile
     ├── src/
     │   ├── app/
-    │   │   ├── components/   # Dashboard, ManualCreator, ManualEditor (Canvas画像編集)
+    │   │   ├── components/   # Dashboard, ManualCreator, ManualEditor, BackupModal
     │   │   └── services/     # API 通信サービス
     │   └── styles.css        # Precision Flow グローバルデザインスタイル
     └── package.json

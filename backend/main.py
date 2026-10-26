@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 import re
+import tempfile
 from datetime import datetime
 
 from typing import List, Optional
@@ -21,7 +22,8 @@ from schemas import (
     ManualCreate, ManualImageResponse, ExtractFrameRequest,
     ManualRefineRequest, ManualRefineResponse,
     ApiKeySetRequest, ApiKeyStatusResponse, AiModelResponse,
-    ApiKeyAddRequest, ApiKeySelectRequest, ApiKeyItemResponse, ApiKeysStatusResponse
+    ApiKeyAddRequest, ApiKeySelectRequest, ApiKeyItemResponse, ApiKeysStatusResponse,
+    BackupItemResponse, BackupRestoreResponse
 )
 
 
@@ -30,6 +32,7 @@ from services.video_service import VideoService
 from services.gemini_service import GeminiService
 from services.pdf_service import PDFService
 from services.key_service import KeyService
+from services.backup_service import BackupService
 
 
 
@@ -61,10 +64,11 @@ else:
         allow_headers=["*"],
     )
 
-# Ensure media directories exist
+# Ensure media and backup directories exist
 os.makedirs(os.path.join(settings.MEDIA_DIR, "videos"), exist_ok=True)
 os.makedirs(os.path.join(settings.MEDIA_DIR, "images"), exist_ok=True)
 os.makedirs(os.path.join(settings.MEDIA_DIR, "pdfs"), exist_ok=True)
+os.makedirs(settings.BACKUP_DIR, exist_ok=True)
 
 @app.get("/api/media/videos/{filename}")
 def stream_video(filename: str, request: Request):
@@ -732,6 +736,99 @@ def refine_manual(
         return ManualRefineResponse(refined_content=refined_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==============================================================================
+# バックアップ・復元 (Backup & Restore) API エンドポイント
+# ==============================================================================
+
+@app.get("/api/backups", response_model=List[BackupItemResponse])
+def list_backups():
+    """保存されているバックアップアーカイブ（.tar.gz）の一覧を取得する。"""
+    try:
+        return BackupService.list_backups()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"バックアップ一覧の取得に失敗しました: {str(e)}")
+
+
+@app.post("/api/backups", response_model=BackupItemResponse)
+def create_backup(db: Session = Depends(get_db)):
+    """DBダンプおよびアップロード動画・画像を含む新規バックアップアーカイブを作成する。"""
+    try:
+        return BackupService.create_backup(db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/backups/{filename}/download")
+def download_backup(filename: str):
+    """指定されたバックアップアーカイブ（.tar.gz）をブラウザへダウンロード配信する。"""
+    try:
+        archive_path = BackupService.get_backup_file_path(filename)
+        return FileResponse(
+            path=archive_path,
+            media_type="application/gzip",
+            filename=filename,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError as fnf:
+        raise HTTPException(status_code=404, detail=str(fnf))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"バックアップのダウンロードに失敗しました: {str(e)}")
+
+
+@app.post("/api/backups/{filename}/restore", response_model=BackupRestoreResponse)
+def restore_backup(filename: str):
+    """サーバー上の指定バックアップアーカイブからDBおよび動画・画像を復元する。"""
+    try:
+        archive_path = BackupService.get_backup_file_path(filename)
+        return BackupService.restore_from_archive_path(archive_path)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError as fnf:
+        raise HTTPException(status_code=404, detail=str(fnf))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/backups/restore-upload", response_model=BackupRestoreResponse)
+async def restore_from_uploaded_archive(file: UploadFile = File(...)):
+    """クライアントからアップロードされたバックアップアーカイブ（.tar.gz）を用いて復元する。"""
+    if not file.filename or not file.filename.endswith(".tar.gz"):
+        raise HTTPException(status_code=400, detail="バックアップファイルは .tar.gz 形式を指定してください。")
+
+    temp_fd, temp_archive_path = tempfile.mkstemp(suffix=".tar.gz", prefix="upload_restore_")
+    os.close(temp_fd)
+
+    try:
+        with open(temp_archive_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return BackupService.restore_from_archive_path(temp_archive_path)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(temp_archive_path):
+            try:
+                os.remove(temp_archive_path)
+            except OSError:
+                pass
+
+
+@app.delete("/api/backups/{filename}")
+def delete_backup(filename: str):
+    """指定されたバックアップアーカイブをサーバーから削除する。"""
+    try:
+        BackupService.delete_backup(filename)
+        return {"message": f"バックアップ {filename} を削除しました。"}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError as fnf:
+        raise HTTPException(status_code=404, detail=str(fnf))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"バックアップの削除に失敗しました: {str(e)}")
 
 
 

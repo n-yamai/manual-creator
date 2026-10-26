@@ -9,6 +9,7 @@ services:
       POSTGRES_USER: manual_user
       POSTGRES_PASSWORD: manual_password
       POSTGRES_DB: manual_db
+      TZ: Asia/Tokyo
     ports:
       - "0.0.0.0:5434:5432"
     volumes:
@@ -23,6 +24,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://manual_user:manual_password@db:5432/manual_db
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TZ=Asia/Tokyo
     ports:
       - "0.0.0.0:3002:8000"
     volumes:
@@ -46,6 +48,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - TZ=Asia/Tokyo
     depends_on:
       - backend
 

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     SECRET_KEY: str = ""
     MEDIA_DIR: str = os.getenv("MEDIA_DIR", "/app/media")
+    BACKUP_DIR: str = os.getenv("BACKUP_DIR", "/app/backups")
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "")
 
     class Config:

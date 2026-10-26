@@ -17,6 +17,10 @@
         <lucide-icon [name]="PlusIcon" class="nav-icon"></lucide-icon>
         <span>新規作成</span>
       </a>
+      <a class="nav-item" (click)="isBackupModalOpen = true" style="cursor: pointer;">
+        <lucide-icon [name]="DatabaseIcon" class="nav-icon"></lucide-icon>
+        <span>バックアップ・復元</span>
+      </a>
 
       <!-- Divider & Recent Manuals -->
       <hr class="sidebar-divider">
@@ -62,7 +66,11 @@
         >
       </div>
 
-      <div class="header-right-actions" style="display: flex; align-items: center; gap: 1rem;">
+      <div class="header-right-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+        <button class="btn btn-secondary backup-settings-btn" (click)="isBackupModalOpen = true" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer;">
+          <lucide-icon [name]="DatabaseIcon"></lucide-icon>
+          <span>バックアップ</span>
+        </button>
         <button class="btn btn-secondary key-settings-btn" (click)="isApiKeyModalOpen = true" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer;">
           <lucide-icon [name]="KeyIcon"></lucide-icon>
           <span>APIキー: {{ activeKeyLabel ? activeKeyLabel : '未設定' }}</span>
@@ -79,6 +87,12 @@
       (close)="isApiKeyModalOpen = false"
       (statusChanged)="loadKeyStatus()"
     ></app-api-key-modal>
+
+    <app-backup-modal
+      [isOpen]="isBackupModalOpen"
+      (close)="isBackupModalOpen = false"
+      (restored)="loadManuals()"
+    ></app-backup-modal>
 
 
 

@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-dev \
     libgl1 \
     ffmpeg \
+    postgresql-client \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,8 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# メディアデータを保存するディレクトリを作成
-RUN mkdir -p /app/media/videos /app/media/images /app/media/pdfs
+# メディアデータおよびバックアップを保存するディレクトリを作成
+RUN mkdir -p /app/media/videos /app/media/images /app/media/pdfs /app/backups
 
 EXPOSE 8000
 

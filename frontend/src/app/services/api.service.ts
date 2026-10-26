@@ -55,6 +55,22 @@ export interface ApiKeyStatus {
   using_fallback: boolean;
 }
 
+export interface BackupItem {
+  filename: string;
+  size_bytes: number;
+  created_at: string;
+  manual_count: number | null;
+  video_count: number | null;
+  image_count: number | null;
+  source?: string;
+}
+
+export interface BackupRestoreResult {
+  message: string;
+  restored_videos: number;
+  restored_images: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -210,7 +226,35 @@ export class ApiService {
     const cleanPath = normalizedPath.replace(/^\/?(api\/media\/)?/, '');
     return `${this.baseUrl}/api/media/${cleanPath}`;
   }
+
+  // Backup & Restore APIs
+  getBackups(): Observable<BackupItem[]> {
+    return this.http.get<BackupItem[]>(`${this.apiUrl}/backups`, this.defaultOptions);
+  }
+
+  createBackup(): Observable<BackupItem> {
+    return this.http.post<BackupItem>(`${this.apiUrl}/backups`, {}, this.defaultOptions);
+  }
+
+  getBackupDownloadUrl(filename: string): string {
+    return `${this.apiUrl}/backups/${encodeURIComponent(filename)}/download`;
+  }
+
+  restoreBackup(filename: string): Observable<BackupRestoreResult> {
+    return this.http.post<BackupRestoreResult>(`${this.apiUrl}/backups/${encodeURIComponent(filename)}/restore`, {}, this.defaultOptions);
+  }
+
+  restoreFromUploadedBackup(file: File): Observable<BackupRestoreResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<BackupRestoreResult>(`${this.apiUrl}/backups/restore-upload`, formData, this.defaultOptions);
+  }
+
+  deleteBackup(filename: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.apiUrl}/backups/${encodeURIComponent(filename)}`, this.defaultOptions);
+  }
 }
+
 
 
 

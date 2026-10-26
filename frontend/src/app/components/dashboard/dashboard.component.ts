@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { ApiService, Manual } from '../../services/api.service';
 import { ApiKeyModalComponent } from '../api-key-modal/api-key-modal.component';
+import { BackupModalComponent } from '../backup-modal/backup-modal.component';
 import { 
   LucideAngularModule, 
   Plus, 
@@ -17,13 +18,14 @@ import {
   Search,
   Sparkles,
   BookOpen,
-  Key
+  Key,
+  Database
 } from 'lucide-angular';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, LucideAngularModule, ApiKeyModalComponent],
+  imports: [CommonModule, RouterModule, LucideAngularModule, ApiKeyModalComponent, BackupModalComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -35,6 +37,7 @@ export class DashboardComponent implements OnInit {
   loading = true;
   error = '';
   isApiKeyModalOpen = false;
+  isBackupModalOpen = false;
   activeKeyLabel: string | null = null;
 
   // Icons
@@ -51,6 +54,7 @@ export class DashboardComponent implements OnInit {
   SparklesIcon = Sparkles;
   BookOpenIcon = BookOpen;
   KeyIcon = Key;
+  DatabaseIcon = Database;
 
 
   constructor(private apiService: ApiService, private router: Router) {}

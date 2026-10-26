@@ -107,3 +107,20 @@ class AiModelResponse(BaseModel):
     paid_tier: bool = True  # 有料版（Paid Tier）で利用可能か
 
 
+# Backup & Restore schemas
+class BackupItemResponse(BaseModel):
+    filename: str
+    size_bytes: int
+    created_at: str
+    manual_count: Optional[int] = None
+    video_count: Optional[int] = None
+    image_count: Optional[int] = None
+    source: Optional[str] = "web_ui"
+
+
+class BackupRestoreResponse(BaseModel):
+    message: str
+    restored_videos: int
+    restored_images: int
+
+
